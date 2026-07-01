@@ -1,0 +1,4 @@
+你实现的多租户空间切换页还存在一些问题，需要进行修复：
+1. TenantSwitch.vue 中 send-invite 事件的失败路径与成功路径传递的数据结构不一致：成功时 inviteData 包含完整的 { spaceId, emails, role } 三个字段，但失败时 inviteData 缺少 emails 字段，导致父组件在监听失败事件时无法获知是哪些邮箱的邀请发送失败。
+2. TenantSwitch.vue 中邮箱验证正则表达式在 validEmailCount 计算属性和 handleSendInvite 函数中重复出现，将来修改验证规则时需要同步修改两处，容易遗漏不一致。
+3. 修复后需要确保 pnpm run test 全部通过。

@@ -138,7 +138,7 @@
             <div v-if="canShowActions" class="actions-group">
               <button
                 class="btn btn-danger btn-block"
-                :disabled="isSubmitting || isExpired"
+                :disabled="isActionDisabled"
                 @click="handleReject"
               >
                 <span v-if="isSubmitting" class="btn-spinner"></span>
@@ -146,7 +146,7 @@
               </button>
               <button
                 class="btn btn-success btn-block"
-                :disabled="isSubmitting || isExpired"
+                :disabled="isActionDisabled"
                 @click="handleConfirm"
               >
                 <span v-if="isSubmitting" class="btn-spinner"></span>
@@ -286,6 +286,8 @@ const canOperate = computed(() => {
   return status.value === SCANNED_PENDING || status.value === RISK
 })
 
+const isActionDisabled = computed(() => !canOperate.value || isSubmitting.value)
+
 const countdownFormatted = computed(() => {
   const mins = Math.floor(Math.max(0, countdownRemaining.value) / 60)
   const secs = Math.max(0, countdownRemaining.value) % 60
@@ -366,7 +368,7 @@ function simulateScan(isRisk = false) {
 }
 
 function handleConfirm() {
-  if (isSubmitting.value || !canOperate.value) return
+  if (isActionDisabled.value) return
 
   isSubmitting.value = true
 
@@ -380,7 +382,7 @@ function handleConfirm() {
 }
 
 function handleReject() {
-  if (isSubmitting.value || !canOperate.value) return
+  if (isActionDisabled.value) return
 
   isSubmitting.value = true
 

@@ -1,0 +1,4 @@
+你实现的设备授权登录页还存在一些问题，需要进行修复：
+1. DeviceAuthorization.vue 中按钮的 :disabled 绑定在模板层简化为 `isSubmitting || isExpired` 之后，handleConfirm 和 handleReject 函数的 JS 层守卫仍然使用 `!canOperate.value` 判断是否允许操作。同一个"是否可以操作"的决策逻辑在模板层和 JS 层用了两套不同的条件表达式——模板用 `isSubmitting || isExpired`，JS 层用 `!canOperate.value`（内部等价于 isOperationDone || isExpired || 状态不匹配）。当需要修改操作前置条件时，可能会只改一处而导致两层逻辑不一致。
+2. index.js 的白名单导出在排除不安全的旧函数的同时，也将 canTransition、getNextPossibleTransitions、transitionStatus、canConfirm、canReject、canRefresh 等中间层查询函数一并排除在外。这些函数本身没有安全隐患，但既不是公开推荐的 API、也未标记为废弃，处于分类模糊的状态，如果之前有其他外部代码通过 index.js 使用这些函数将被破坏。
+3. 修复后需要确保 pnpm run test 全部通过。

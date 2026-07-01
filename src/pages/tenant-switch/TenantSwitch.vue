@@ -368,6 +368,17 @@ const inviteRoles = [
   { value: MEMBER_ROLES.GUEST, label: '访客', description: '只读访问，权限受限' }
 ]
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const EMAIL_SPLIT_REGEX = /[,，\s]+/
+
+function parseEmails(rawEmails) {
+  if (!rawEmails) return []
+  return rawEmails
+    .split(EMAIL_SPLIT_REGEX)
+    .map(email => email.trim())
+    .filter(email => EMAIL_REGEX.test(email))
+}
+
 const fallbackApiClient = createMockApiClient({
   simulateErrors: props.simulateErrors
 })
@@ -387,12 +398,7 @@ const availableSpaces = computed(() => {
 })
 
 const validEmailCount = computed(() => {
-  if (!inviteForm.value.emails) return 0
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return inviteForm.value.emails
-    .split(/[,，\s]+/)
-    .filter(email => emailRegex.test(email.trim()))
-    .length
+  return parseEmails(inviteForm.value.emails).length
 })
 
 const canSendInvite = computed(() => {
@@ -468,19 +474,14 @@ async function handleSendInvite() {
 
   inviteSending.value = true
 
+  const emails = parseEmails(inviteForm.value.emails)
+  const inviteData = {
+    spaceId: inviteForm.value.spaceId,
+    emails,
+    role: inviteForm.value.role
+  }
+
   try {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    const emails = inviteForm.value.emails
-      .split(/[,，\s]+/)
-      .map(email => email.trim())
-      .filter(email => emailRegex.test(email))
-
-    const inviteData = {
-      spaceId: inviteForm.value.spaceId,
-      emails,
-      role: inviteForm.value.role
-    }
-
     const result = await apiClient.sendInvite(inviteData)
     emit('send-invite', { success: true, inviteData, result })
     showNotification('success', `已成功发送 ${result.sentCount || emails.length} 份邀请`)
@@ -492,10 +493,6 @@ async function handleSendInvite() {
     }
     showInviteModal.value = false
   } catch (error) {
-    const inviteData = {
-      spaceId: inviteForm.value.spaceId,
-      role: inviteForm.value.role
-    }
     emit('send-invite', { success: false, inviteData, error })
     showNotification('error', '发送邀请失败，请稍后重试')
   } finally {
