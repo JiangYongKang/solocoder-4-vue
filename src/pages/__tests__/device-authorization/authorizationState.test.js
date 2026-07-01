@@ -254,6 +254,51 @@ describe('authorizationState - 状态流转', () => {
 })
 
 describe('authorizationState - 纯函数操作（向后兼容）', () => {
+  let warnSpy
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    warnSpy.mockRestore()
+  })
+
+  describe('deprecated 警告应该为所有旧纯函数发出 deprecation 警告', () => {
+    it('markAsScanned 应该发出警告', () => {
+      markAsScanned(PENDING_SCAN, {})
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEPRECATED'))
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('markAsScanned'))
+    })
+
+    it('confirmAuthorization 应该发出警告并注明安全隐患', () => {
+      confirmAuthorization(SCANNED_PENDING)
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('安全隐患'))
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('confirmAuthorization'))
+    })
+
+    it('rejectAuthorization 应该发出警告并注明安全隐患', () => {
+      rejectAuthorization(SCANNED_PENDING)
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('安全隐患'))
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('rejectAuthorization'))
+    })
+
+    it('markAsTimeout 应该发出警告', () => {
+      markAsTimeout(PENDING_SCAN)
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEPRECATED'))
+    })
+
+    it('markAsRisk 应该发出警告', () => {
+      markAsRisk(PENDING_SCAN)
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEPRECATED'))
+    })
+
+    it('refreshAuthorization 应该发出警告', () => {
+      refreshAuthorization(TIMEOUT)
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('DEPRECATED'))
+    })
+  })
+
   describe('markAsScanned - 不再硬编码绕过状态机', () => {
     it('should transition from PENDING_SCAN to SCANNED_PENDING with device info', () => {
       const deviceInfo = { name: 'iPhone 15', type: 'mobile' }

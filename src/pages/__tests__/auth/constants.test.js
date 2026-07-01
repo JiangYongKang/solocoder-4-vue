@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  AUTH_ROUTES,
-  PUBLIC_ROUTES,
-  PROTECTED_ROUTES,
-  TOKEN_STORAGE_KEY,
-  USER_STORAGE_KEY,
-  TOKEN_EXPIRE_KEY,
-  TOKEN_DURATION_MS,
-  VALIDATION_RULES,
-  ERROR_MESSAGES,
-  ROUTE_TITLES
+    AUTH_ROUTES,
+    ERROR_MESSAGES,
+    PROTECTED_ROUTES,
+    PUBLIC_ROUTES,
+    ROUTE_TITLES,
+    TOKEN_DURATION_MS,
+    TOKEN_EXPIRE_KEY,
+    TOKEN_STORAGE_KEY,
+    USER_STORAGE_KEY,
+    VALIDATION_RULES
 } from '../../auth/constants.js'
 
 describe('auth constants', () => {

@@ -758,7 +758,7 @@ function getTaskExpirationText(task) {
   return `有效期：${formatTimeRemaining(timeRemaining)}`
 }
 
-async function handleTaskAction(task) {
+function handleTaskAction(task) {
   if (claimingTaskIds.value.has(task.id)) {
     return
   }
@@ -783,8 +783,6 @@ async function handleTaskAction(task) {
 
   try {
     claimingTaskIds.value.add(task.id)
-
-    await new Promise(resolve => setTimeout(resolve, 300))
 
     const freshTask = tasks.value.find(t => t.id === task.id)
     if (!freshTask) {

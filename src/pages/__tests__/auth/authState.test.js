@@ -1,35 +1,34 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  AUTH_ROUTES,
-  ERROR_MESSAGES,
-  TOKEN_STORAGE_KEY,
-  USER_STORAGE_KEY,
-  TOKEN_EXPIRE_KEY
-} from '../../auth/constants.js'
-import {
-  initAuthState,
-  clearAuthState,
-  isAuthenticated,
-  getToken,
-  getUser,
-  registerUser,
-  loginUser,
-  logoutUser,
-  requestPasswordReset,
-  verifyResetCode,
-  resetPassword,
-  changePassword,
-  isPublicRoute,
-  isProtectedRoute,
-  canAccessRoute,
-  getDefaultRoute,
-  _clearRegisteredUsers,
-  _clearResetCodes,
-  _getRegisteredUsers,
-  _getResetCodes,
-  _clearMemoryStorage,
-  _storage
+    _clearRegisteredUsers,
+    _clearResetCodes,
+    _getRegisteredUsers,
+    _getResetCodes,
+    _storage,
+    canAccessRoute,
+    changePassword,
+    clearAuthState,
+    getDefaultRoute,
+    getToken,
+    getUser,
+    initAuthState,
+    isAuthenticated,
+    isProtectedRoute,
+    isPublicRoute,
+    loginUser,
+    logoutUser,
+    registerUser,
+    requestPasswordReset,
+    resetPassword,
+    verifyResetCode
 } from '../../auth/authState.js'
+import {
+    AUTH_ROUTES,
+    ERROR_MESSAGES,
+    TOKEN_EXPIRE_KEY,
+    TOKEN_STORAGE_KEY,
+    USER_STORAGE_KEY
+} from '../../auth/constants.js'
 
 describe('authState', () => {
   beforeEach(() => {

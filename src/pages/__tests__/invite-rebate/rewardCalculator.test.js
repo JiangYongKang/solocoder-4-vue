@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest'
-import {
-  calculateNewUserBonus,
-  calculateFirstPurchaseReward,
-  calculateRecurringPurchaseReward,
-  calculateTierBonus,
-  calculateNextTierBonus,
-  calculateSingleInviteReward,
-  calculateTotalRewards,
-  calculateFreezeReleaseDate,
-  calculateFreezeDaysRemaining,
-  formatCurrency
-} from '../../invite-rebate/rewardCalculator.js'
+import { describe, expect, it } from 'vitest'
 import { REWARD_RULES, SETTLEMENT_RULES } from '../../invite-rebate/constants.js'
+import {
+    calculateFirstPurchaseReward,
+    calculateFreezeDaysRemaining,
+    calculateFreezeReleaseDate,
+    calculateNewUserBonus,
+    calculateNextTierBonus,
+    calculateRecurringPurchaseReward,
+    calculateSingleInviteReward,
+    calculateTierBonus,
+    calculateTotalRewards,
+    formatCurrency
+} from '../../invite-rebate/rewardCalculator.js'
 
 describe('rewardCalculator', () => {
   describe('calculateNewUserBonus', () => {
@@ -184,7 +184,6 @@ describe('rewardCalculator', () => {
       expect(result.nextTier).toBe(nextTier.invites)
       expect(result.progress).toBe(Math.round((tier.invites / nextTier.invites) * 100))
       expect(result.invitesNeeded).toBe(nextTier.invites - tier.invites)
-      void tier
     })
   })
 

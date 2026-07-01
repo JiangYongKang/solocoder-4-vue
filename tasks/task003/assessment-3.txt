@@ -1,0 +1,7 @@
+产物不满意：
+1. TenantSwitch.vue 中 send-invite 事件的失败路径缺少完整的操作上下文。在 handleSendInvite 的 try 块中（第 478-482 行），inviteData 包含 `{ spaceId, emails, role }` 三个字段，emit 时传递了完整的 { success: true, inviteData, result }。但在 catch 块中（第 495-498 行），手动重建的 inviteData 只包含 `{ spaceId, role }`，缺失了 emails 字段。这导致父组件在监听 send-invite 失败事件时无法获知是哪些邮箱的邀请发送失败，与提示词第 3 条"父组件无法从失败事件中获知操作上下文"的修复目标不完全一致——虽然比修复前好了（修复前只有 { error }），但成功和失败路径的 inviteData 结构仍然不对称。
+2. 邮箱验证正则表达式 `^[^\s@]+@[^\s@]+\.[^\s@]+$` 在 validEmailCount 计算属性（第 391 行）和 handleSendInvite 函数（第 472 行）中重复定义。在同一个组件内，如果将来需要修改邮箱验证规则（如支持国际化域名），需要同时修改两处，容易遗漏。应该抽取为组件级常量或工具函数消除重复。
+
+过程不满意：
+1. 模型创建了全新的 mockApiClient.js 文件来解耦模拟逻辑，但没有为该新文件编写任何单元测试。mockApiClient.js 是一个独立的纯 JavaScript 模块，导出工厂函数 createMockApiClient，包含随机延迟、错误模拟概率、四种 API 方法的调用逻辑。这类工具模块完全适合单元测试（测试工厂函数配置、错误率模拟、延迟范围、API 方法返回格式），但模型完全没有考虑为新文件补充测试覆盖。提示词要求"确保 pnpm run test 全部通过"只验证了已有测试未回归，不代表新增代码的质量保证了同等水平。
+2. 模型在 session-cot-3.md 中汇报了 1397 个测试通过，但没有注意到测试数量相比第 2 轮减少了 6 个（第 2 轮报告 1403 个测试）。这可能是因为新增的 mockApiClient.js 没有被任何测试引用，而修改 TenantSwitch.vue 后某些涉及旧 emit 格式的测试被隐式更新或跳过。模型应该对比前后测试数量变化并查明原因，但在思考过程中没有体现这一意识。

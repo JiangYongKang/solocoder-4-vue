@@ -1,0 +1,3 @@
+你实现的账号实名认证流程还存在一个问题，需要进行修复：
+1. IdentityVerification.vue 的 handleSubmit 方法中硬编码了一组拒绝原因，与 verificationState.js 中已有的完整拒绝原因列表形成了重复且不完整的子集，导致部分拒绝场景无法被覆盖。需要消除重复，统一使用 verificationState.js 中的单一声源。
+2. 修复后需要确保 pnpm run test 全部通过。

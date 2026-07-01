@@ -493,7 +493,6 @@ import {
   createSkipWarning,
   getSkippedStateInfo,
   canSkip,
-  confirmSkip,
   cancelSkip,
   executeSkip
 } from './skipConfirmation.js'
@@ -568,14 +567,8 @@ const sortedTasks = computed(() => sortTasksByPriority(taskStatuses.value))
 const taskProgress = computed(() => getTaskProgress(taskStatuses.value))
 
 function isStepCompleted(step) {
-  if (visitedSteps.value.has(step)) {
-    const stepIndex = getStepIndex(step)
-    const currentIndex = getStepIndex(currentStep.value)
-    if (currentIndex === -1) return true
-    if (stepIndex < currentIndex) return true
-    if (step === currentStep.value) return false
-  }
-  return false
+  if (step === currentStep.value) return false
+  return visitedSteps.value.has(step)
 }
 
 function markStepVisited(step) {

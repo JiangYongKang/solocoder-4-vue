@@ -138,7 +138,7 @@
             <div v-if="canShowActions" class="actions-group">
               <button
                 class="btn btn-danger btn-block"
-                :disabled="!canOperate || isSubmitting || isExpired"
+                :disabled="isSubmitting || isExpired"
                 @click="handleReject"
               >
                 <span v-if="isSubmitting" class="btn-spinner"></span>
@@ -146,7 +146,7 @@
               </button>
               <button
                 class="btn btn-success btn-block"
-                :disabled="!canOperate || isSubmitting || isExpired"
+                :disabled="isSubmitting || isExpired"
                 @click="handleConfirm"
               >
                 <span v-if="isSubmitting" class="btn-spinner"></span>

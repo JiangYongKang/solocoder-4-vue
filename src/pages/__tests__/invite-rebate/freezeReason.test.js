@@ -1,26 +1,26 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  getFreezeReasonLabel,
-  getFreezeReasonDescription,
-  getFreezeReasonSuggestion,
-  getFreezeSeverity,
-  getSeverityLabel,
-  getSeverityColor,
-  canAppeal,
-  getAppealInstructions,
-  getFreezeRecordDetails,
-  groupFreezeRecordsBySeverity,
-  calculateFreezeSummary,
-  FREEZE_REASON_LIST
-} from '../../invite-rebate/freezeReason.js'
-import {
-  FREEZE_REASON,
-  FREEZE_REASON_LABELS,
-  FREEZE_REASON_DESCRIPTIONS,
-  FREEZE_REASON_SUGGESTIONS,
-  FREEZE_SEVERITY,
-  FREEZE_REASON_SEVERITY
+    FREEZE_REASON,
+    FREEZE_REASON_DESCRIPTIONS,
+    FREEZE_REASON_LABELS,
+    FREEZE_REASON_SEVERITY,
+    FREEZE_REASON_SUGGESTIONS,
+    FREEZE_SEVERITY
 } from '../../invite-rebate/constants.js'
+import {
+    calculateFreezeSummary,
+    canAppeal,
+    FREEZE_REASON_LIST,
+    getAppealInstructions,
+    getFreezeReasonDescription,
+    getFreezeReasonLabel,
+    getFreezeReasonSuggestion,
+    getFreezeRecordDetails,
+    getFreezeSeverity,
+    getSeverityColor,
+    getSeverityLabel,
+    groupFreezeRecordsBySeverity
+} from '../../invite-rebate/freezeReason.js'
 
 describe('freezeReason', () => {
   describe('getFreezeReasonLabel', () => {

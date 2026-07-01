@@ -226,9 +226,8 @@
                   v-for="space in availableSpaces"
                   :key="space.id"
                   :value="space.id"
-                  :disabled="isSpaceExpired(space)"
                 >
-                  {{ space.name }}{{ isSpaceExpired(space) ? ' (已过期)' : '' }}
+                  {{ space.name }}
                 </option>
               </select>
             </div>
@@ -319,7 +318,7 @@ import {
   formatDate,
   getExpireStatus
 } from './utils.js'
-import { generateMockSpaces } from './mockData.js'
+import { createMockApiClient } from './mockApiClient.js'
 
 const props = defineProps({
   spaces: {
@@ -369,33 +368,11 @@ const inviteRoles = [
   { value: MEMBER_ROLES.GUEST, label: '访客', description: '只读访问，权限受限' }
 ]
 
-const apiClient = inject('apiClient', {
-  fetchSpaces: async () => {
-    await new Promise(resolve => setTimeout(resolve, 1200))
-    return generateMockSpaces()
-  },
-  switchSpace: async (space) => {
-    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 400))
-    if (props.simulateErrors && Math.random() < 0.1) {
-      throw new Error('切换空间失败')
-    }
-    return { success: true }
-  },
-  setDefaultSpace: async (space) => {
-    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 400))
-    if (props.simulateErrors && Math.random() < 0.1) {
-      throw new Error('设置默认空间失败')
-    }
-    return { success: true }
-  },
-  sendInvite: async (inviteData) => {
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 500))
-    if (props.simulateErrors && Math.random() < 0.1) {
-      throw new Error('发送邀请失败')
-    }
-    return { success: true, sentCount: inviteData.emails.length }
-  }
+const fallbackApiClient = createMockApiClient({
+  simulateErrors: props.simulateErrors
 })
+
+const apiClient = inject('apiClient', fallbackApiClient)
 
 const sortedSpaces = computed(() => {
   return sortSpaces(spaces.value, currentSpaceId.value)
@@ -453,14 +430,14 @@ async function handleSwitchSpace(space) {
   switchingSpaceId.value = space.id
 
   try {
-    await apiClient.switchSpace(space)
+    const result = await apiClient.switchSpace(space)
 
     currentSpaceId.value = space.id
     spaces.value = updateLastAccessed(spaces.value, space.id)
-    emit('switch-space', space)
+    emit('switch-space', { success: true, space, result })
     showNotification('success', `已成功切换到「${space.name}」`)
   } catch (error) {
-    emit('switch-space', { space, error })
+    emit('switch-space', { success: false, space, error })
     showNotification('error', `切换到「${space.name}」失败，请稍后重试`)
   } finally {
     switchingSpaceId.value = null
@@ -473,13 +450,13 @@ async function handleSetDefault(space) {
   settingDefaultId.value = space.id
 
   try {
-    await apiClient.setDefaultSpace(space)
+    const result = await apiClient.setDefaultSpace(space)
 
     spaces.value = setDefaultSpace(spaces.value, space.id)
-    emit('set-default', space)
+    emit('set-default', { success: true, space, result })
     showNotification('success', `已将「${space.name}」设为默认空间`)
   } catch (error) {
-    emit('set-default', { space, error })
+    emit('set-default', { success: false, space, error })
     showNotification('error', `设置「${space.name}」为默认空间失败，请稍后重试`)
   } finally {
     settingDefaultId.value = null
@@ -505,7 +482,7 @@ async function handleSendInvite() {
     }
 
     const result = await apiClient.sendInvite(inviteData)
-    emit('send-invite', inviteData)
+    emit('send-invite', { success: true, inviteData, result })
     showNotification('success', `已成功发送 ${result.sentCount || emails.length} 份邀请`)
 
     inviteForm.value = {
@@ -515,7 +492,11 @@ async function handleSendInvite() {
     }
     showInviteModal.value = false
   } catch (error) {
-    emit('send-invite', { error })
+    const inviteData = {
+      spaceId: inviteForm.value.spaceId,
+      role: inviteForm.value.role
+    }
+    emit('send-invite', { success: false, inviteData, error })
     showNotification('error', '发送邀请失败，请稍后重试')
   } finally {
     inviteSending.value = false

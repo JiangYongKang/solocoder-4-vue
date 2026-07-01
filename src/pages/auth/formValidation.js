@@ -82,10 +82,6 @@ export function validateConfirmPassword(password, confirmPassword) {
     return { valid: false, message: ERROR_MESSAGES.CONFIRM_PASSWORD_REQUIRED }
   }
 
-  if (!confirmPassword) {
-    return { valid: false, message: ERROR_MESSAGES.CONFIRM_PASSWORD_REQUIRED }
-  }
-
   if (password !== confirmPassword) {
     return { valid: false, message: ERROR_MESSAGES.PASSWORD_MISMATCH }
   }

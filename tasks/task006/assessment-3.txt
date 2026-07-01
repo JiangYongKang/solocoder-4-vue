@@ -1,0 +1,6 @@
+产物不满意：
+1. DeviceAuthorization.vue 按钮的 :disabled 绑定虽然在模板层从 `!canOperate || isSubmitting || isExpired` 简化为 `isSubmitting || isExpired`，但 handleConfirm 和 handleReject 函数的 JS 层守卫（第 369 行和第 383 行）仍然使用 `!canOperate.value` 来判断是否允许执行操作。这导致"是否可以操作"的同一决策逻辑在模板层和 JS 层用两套不同的表达式表达——模板用 `isSubmitting || isExpired`，JS 层用 `!canOperate.value`（内部等价于 isOperationDone || isExpired || 状态不匹配）。提示词要求消除"同一个状态被多处重复检查"，本次修复仅消除了模板层的重复，但同一语义在两个层面仍有不同表达，将来维护时如果只改一处可能导致不一致。
+2. index.js 的白名单导出虽然正确排除了 6 个不安全的旧纯函数，但也同时排除了 canTransition、getNextPossibleTransitions、transitionStatus、canConfirm、canReject、canRefresh 等中间层查询函数。这些函数本身没有安全隐患，但既不在白名单中、也未被 deprecated，属于 API 分类模糊状态。如果之前有其他外部代码通过 index.js 使用这些函数，此举会静默破坏兼容性。模型没有对这些中间层函数做明确的去留决策，属于不彻底的 API 治理。
+
+过程不满意：
+1. 模型在 authorizationState.js 中为 6 个旧纯函数添加了 @deprecated 标记和 emitDeprecationWarning 运行时警告，但新增的测试用例（第 289-299 行）中，后三个测试（markAsTimeout、markAsRisk、refreshAuthorization）仅用 `expect.stringContaining('DEPRECATED')` 做通用断言，未验证发出的警告中是否包含了正确的函数名。如果 emitDeprecationWarning 实现有 bug（如所有函数都发出了同一个函数名），这些测试无法检测到。前三个测试（confirmAuthorization、rejectAuthorization）则额外验证了「安全隐患」和具体函数名，说明模型有能力写出更精确的断言，但对后三个函数降低了测试标准。

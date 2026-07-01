@@ -1,24 +1,24 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  getSettlementStatusLabel,
-  getSettlementStatusIcon,
-  getSettlementStatusColor,
-  determineSettlementStatus,
-  canSettleNow,
-  isInFreezePeriod,
-  isProcessing,
-  hasProblem,
-  calculateSettlementTimeline,
-  getDaysUntilSettlement,
-  getSettlementStatusBadgeClass
-} from '../../invite-rebate/settlementStatus.js'
-import {
-  SETTLEMENT_STATUS,
-  SETTLEMENT_STATUS_LABELS,
-  SETTLEMENT_STATUS_ICONS,
-  SETTLEMENT_STATUS_COLORS,
-  SETTLEMENT_RULES
+    SETTLEMENT_RULES,
+    SETTLEMENT_STATUS,
+    SETTLEMENT_STATUS_COLORS,
+    SETTLEMENT_STATUS_ICONS,
+    SETTLEMENT_STATUS_LABELS
 } from '../../invite-rebate/constants.js'
+import {
+    calculateSettlementTimeline,
+    canSettleNow,
+    determineSettlementStatus,
+    getDaysUntilSettlement,
+    getSettlementStatusBadgeClass,
+    getSettlementStatusColor,
+    getSettlementStatusIcon,
+    getSettlementStatusLabel,
+    hasProblem,
+    isInFreezePeriod,
+    isProcessing
+} from '../../invite-rebate/settlementStatus.js'
 
 describe('settlementStatus', () => {
   describe('getSettlementStatusLabel', () => {

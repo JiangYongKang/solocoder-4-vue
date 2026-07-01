@@ -1,0 +1,6 @@
+产物满意：
+1. rewardCalculator.test.js 第 187 行的无意义死代码语句 `void tier` 已被正确删除。void 运算符对 tier 变量求值后返回 undefined，该返回值未被赋值给任何变量也未作为参数传递，是完全无意义的表达式语句。删除后不影响任何断言逻辑（该测试用例的 4 个断言分别验证 result.reached、result.nextTier、result.progress、result.invitesNeeded，均不依赖该语句）、不修改变量、不产生副作用。
+2. pnpm run test 全部通过（invite-rebate 模块 6 files, 234 tests passed），零回归。
+
+过程不满意：
+1. 无。

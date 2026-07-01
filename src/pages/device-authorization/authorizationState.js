@@ -68,14 +68,36 @@ export function canRefresh(status) {
   return status === TIMEOUT || status === PENDING_SCAN
 }
 
+function emitDeprecationWarning(functionName, recommendedAlternative) {
+  if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+    console.warn(
+      `[DEPRECATED] device-authorization: ${functionName}() 已废弃，` +
+      `请使用 createAuthorizationManager() 的实例方法替代：` +
+      `\n  const manager = createAuthorizationManager();` +
+      `\n  manager.${recommendedAlternative}();` +
+      `\n废弃原因：旧的纯函数版本防重复提交逻辑依赖外部参数，存在安全隐患。`
+    )
+  }
+}
+
+/**
+ * @deprecated 请使用 createAuthorizationManager().markAsScanned() 替代
+ * 旧版本防重复提交逻辑不内聚，存在安全隐患
+ */
 export function markAsScanned(currentStatus, deviceInfo = {}) {
+  emitDeprecationWarning('markAsScanned', 'markAsScanned')
   if (currentStatus === RISK) {
     return transitionStatus(currentStatus, RISK, { deviceInfo })
   }
   return transitionStatus(currentStatus, SCANNED_PENDING, { deviceInfo })
 }
 
+/**
+ * @deprecated 请使用 createAuthorizationManager().confirm() 替代
+ * 严重安全隐患：旧版本 hasConfirmed 参数由调用方传入，存在被绕过风险
+ */
 export function confirmAuthorization(currentStatus, options = {}) {
+  emitDeprecationWarning('confirmAuthorization', 'confirm')
   const { hasConfirmed = false } = options
 
   if (hasConfirmed) {
@@ -96,7 +118,12 @@ export function confirmAuthorization(currentStatus, options = {}) {
   return result
 }
 
+/**
+ * @deprecated 请使用 createAuthorizationManager().reject() 替代
+ * 严重安全隐患：旧版本 hasConfirmed 参数由调用方传入，存在被绕过风险
+ */
 export function rejectAuthorization(currentStatus, options = {}) {
+  emitDeprecationWarning('rejectAuthorization', 'reject')
   const { hasConfirmed = false, rejectReason = '用户拒绝授权' } = options
 
   if (hasConfirmed) {
@@ -118,7 +145,11 @@ export function rejectAuthorization(currentStatus, options = {}) {
   return result
 }
 
+/**
+ * @deprecated 请使用 createAuthorizationManager().markAsTimeout() 替代
+ */
 export function markAsTimeout(currentStatus) {
+  emitDeprecationWarning('markAsTimeout', 'markAsTimeout')
   if (isTerminalStatus(currentStatus)) {
     return {
       success: false,
@@ -129,11 +160,19 @@ export function markAsTimeout(currentStatus) {
   return transitionStatus(currentStatus, TIMEOUT)
 }
 
+/**
+ * @deprecated 请使用 createAuthorizationManager().markAsRisk() 替代
+ */
 export function markAsRisk(currentStatus, riskData = {}) {
+  emitDeprecationWarning('markAsRisk', 'markAsRisk')
   return transitionStatus(currentStatus, RISK, { riskData, markedAsRiskAt: new Date().toISOString() })
 }
 
+/**
+ * @deprecated 请使用 createAuthorizationManager().refresh() 替代
+ */
 export function refreshAuthorization(currentStatus) {
+  emitDeprecationWarning('refreshAuthorization', 'refresh')
   const result = transitionStatus(currentStatus, PENDING_SCAN)
   if (result.success) {
     return {

@@ -83,8 +83,8 @@ export function initAuthState() {
   }
 }
 
-function secureRandomString(length) {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+function secureRandomString(length, customChars) {
+  const chars = customChars || 'abcdefghijklmnopqrstuvwxyz0123456789'
   let result = ''
   const charsLen = chars.length
 
@@ -104,6 +104,12 @@ function secureRandomString(length) {
     result += chars[Math.floor(Math.random() * charsLen)]
   }
   return result
+}
+
+const RESET_CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+
+function generateResetCode() {
+  return secureRandomString(6, RESET_CODE_CHARS)
 }
 
 function generateToken() {
@@ -231,7 +237,7 @@ export function logoutUser() {
 }
 
 export function requestPasswordReset(email) {
-  const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+  const code = generateResetCode()
   resetCodes.set(email, {
     code,
     expireAt: Date.now() + 10 * 60 * 1000,
