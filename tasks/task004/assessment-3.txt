@@ -1,7 +1,4 @@
-产物满意：
-1. Onboarding.vue 中 isStepCompleted 函数的逻辑修正正确。旧逻辑中 `stepIndex < currentIndex` 的比较在用户从确认页跳回之前的步骤后，会使索引更大的已访问步骤被错误判定为未完成。新逻辑 `if (step === currentStep.value) return false; return visitedSteps.value.has(step)` 正确地将判定依据从"索引比较"改为"访问记录"，在所有导航场景（前进、goEdit 跳回、handlePrevious 返回、handleReturnToConfirmation）下均语义正确。
-2. 从 skipConfirmation.js 的导入中移除了未使用的 confirmSkip 函数，符合提示词第 2 条要求。同时模型验证了 getStepIndex 仍被 markStepVisited 使用因此无需移除，说明对未使用导入的判断是审慎的。
-3. pnpm run test 全部通过（36 files, 1397 tests passed）。
+产物不满意：
 
 过程不满意：
-1. 模型在清理未使用导入后，没有检查 confirmSkip 是否在 skipConfirmation.js 模块中还有被其他文件引用。confirmSkip 函数仍在 skipConfirmation.js 中被导出和测试，现在明确成为模块内的孤立死代码——它没有消费者、不再被 Onboarding.vue 导入、仅存在于单元测试中被自身测试。模型应该在移除导入后追溯源文件，确认该导出是否还有其他调用方，如果没有就一并从源模块中移除，而不是留下一个被测试覆盖但已无实际用途的函数。
+1. 模型在清理未使用导入后没有检查 confirmSkip 是否在 skipConfirmation.js 模块中还有被其他文件引用。该函数仍在源模块中被导出和测试，现在明确成为模块内的孤立死代码，没有消费者也不再被任何组件导入，仅存在于单元测试中被自身测试。模型应在移除导入后追溯源文件确认该导出是否有其他调用方，若无则一并从源模块移除，而不是留下一个被测试覆盖但已无实际用途的函数。

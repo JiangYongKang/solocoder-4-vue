@@ -1,13 +1,13 @@
 产物不满意：
-1. 在 TenantSwitch.vue 文件的 handleInvite 方法中，模型将邀请功能实现为一个占位桩方法，仅调用 showNotification("success", "邀请功能开发中，敬请期待") 显示成功类型的通知。然而该功能实际上并未实现，用成功状态提示来包裹一个未完成的功能，会导致用户误以为操作已成功执行，与提示词中"提供邀请入口"的需求产生语义偏差。
-2. 在 TenantSwitch.vue 文件的 generateMockSpaces 方法中，模拟数据生成逻辑被直接写入生产组件内部，而非通过独立的 mock 文件或 props 注入。当此组件被部署到线上时，每次 onMounted 生命周期都会无条件生成 8 条硬编码的假数据，导致生产环境展示的是虚构的空间列表而非真实 API 数据，组件丧失了作为可复用生产模块的能力。
-3. 在 TenantSwitch.vue 文件的 script 导入区域中，isSpaceActive 函数从 utils.js 被显式导入但未在任何模板表达式或计算属性中使用。整个组件中仅使用了 isSpaceExpired 而未使用其反义函数 isSpaceActive，且 isSpaceActive 与 isSpaceExpired 的逻辑表达互为取反，导入冗余函数增加了打包体积和代码审查成本。
-4. 在 TenantSwitch.vue 组件的 onMounted 钩子中，currentSpaceId.value 被赋值为 getDefaultSpace(mockSpaces) 的结果而非 getDefaultSpace(spaces.value)。虽然此处 mockSpaces 就是刚赋给 spaces.value 的数据，但这种绕过响应式变量直接使用局部常量获取默认空间 ID 的写法，在后续代码迭代中将 mock 数据替换为真实 API 调用时极易引入引用不一致的 bug。
-5. 在 TenantSwitch.vue 的 handleSetDefault 方法中，设置默认空间的操作被包裹在 try-catch 块内部并用 Math.random() 模拟 10% 的失败概率，但这个方法并不真正调用外部 API。这种模拟失败的设计导致 handleSetDefault 的 catch 分支在非 demo 场景下永远不会被触发，给后续开发者造成"错误处理已完备"的假象，且移除 mock 逻辑后该 catch 分支可能变成死代码。
+1. TenantSwitch.vue 的 handleInvite 方法中将邀请功能实现为占位桩方法，仅显示成功类型通知告知用户功能开发中。然而该功能实际未实现，用成功状态提示包裹未完成功能会导致用户误以为操作已成功执行，与需求中提供邀请入口的要求产生语义偏差，用户无法通过此入口完成真实的邀请操作。
+2. TenantSwitch.vue 的 generateMockSpaces 方法中模拟数据生成逻辑被直接写入组件内部，而非通过独立 mock 文件或 props 注入。组件部署到线上时每次 onMounted 都会无条件生成硬编码假数据，导致生产环境展示虚构空间列表而非真实 API 数据，组件丧失了作为可复用生产模块的能力，数据层与视图层完全耦合。
+3. TenantSwitch.vue 的 script 导入区域中 isSpaceActive 函数从 utils.js 被显式导入但未在任何模板表达式或计算属性中使用。组件仅使用了 isSpaceExpired 而未使用其反义函数 isSpaceActive，两者逻辑互为取反。导入冗余函数增加了打包体积和代码审查成本，模型缺少对导入是否被实际消费的回溯检查。
+4. TenantSwitch.vue 的 onMounted 钩子中 currentSpaceId 被赋值为 getDefaultSpace(mockSpaces) 的结果而非 getDefaultSpace(spaces.value)。虽然此时 mockSpaces 就是刚赋给 spaces.value 的数据，但这种绕过响应式变量直接使用局部常量的写法在后续将 mock 替换为真实 API 调用时极易引入引用不一致的 bug。
+5. TenantSwitch.vue 的 handleSetDefault 方法中设置默认空间的操作被包裹在 try-catch 块内并用 Math.random 模拟失败概率，但该方法并不真正调用外部 API。这种模拟失败的设计导致 catch 分支在非 demo 场景下永远不会被触发，给后续开发者造成错误处理已完备的假象，且移除 mock 逻辑后该 catch 分支将成为死代码。
 
 过程不满意：
-1. 在 session-cot-1.md 的最终总结中，模型声称"多租户空间切换页面已完成实现，所有功能均已实现并通过测试"，但 handleInvite 仅为一个占位桩，没有任何真实的邀请逻辑。模型在自评阶段缺少逐条核对提示词要求的验证步骤，将"存在 UI 入口"等同于"功能已实现"，未能区分界面占位与功能完。
-2. 在 session-cot-1.md 的开发流程中，模型创建了 utils.js 和测试文件后直接编写了包含 mock 数据的 Vue 组件，从始至终未考虑数据层与视图层的解耦。模型没有规划 props 接口或数据注入方案来替代硬编码的 generateMockSpaces，也未在思考过程中提及 mock 数据与生产数据的分离策略。
-3. 在 session-cot-1.md 的工具调用记录中，模型编写 utils.js 时定义了 isSpaceActive 函数，随后在编写 TenantSwitch.vue 时将其添加到 import 列表中，但在模板逻辑中始终只使用 isSpaceExpired。模型在切换上下文后未回溯检查已导入的函数是否实际被消费，暴露出其缺乏从"定义了什么"到"哪些真正需要"的修剪意识。
-4. 在 session-cot-1.md 中模型编写 onMounted 逻辑时先执行 spaces.value = mockSpaces，再通过 getDefaultSpace(mockSpaces) 获取当前空间 ID，未使用 getDefaultSpace(spaces.value) 保持数据源一致性。模型在代码审查阶段未质疑为何在一个方法内对同一数据使用两个不同的引用源，表明其缺少对状态管理一致性的自检行为。
-5. 在 session-cot-1.md 的开发过程中，模型仅用简单的 setTimeout 加随机概率来模拟异步操作和失败场景，这是一种试错式调试思维的延伸——模型没有规划使用 Vue 组件 props 来接受外部的切换和设置回调函数，而是将模拟层与业务逻辑层耦合在同一方法内，导致代码的可测试性和可维护性下降。
+1. 模型在最终总结中声称所有功能均已实现并通过测试，但 handleInvite 仅为占位桩没有真实逻辑。模型在自评阶段缺少逐条核对需求的验证步骤，将存在 UI 入口等同于功能已实现，未能区分界面占位与功能完成的本质差异，这种自评偏差导致错误地将未完成功能标记为已完成。
+2. 模型创建了 utils.js 和测试文件后直接编写了包含 mock 数据的 Vue 组件，从始至终未考虑数据层与视图层的解耦。模型没有规划 props 接口或数据注入方案来替代硬编码的 mock 数据生成函数，也未在思考过程中提及 mock 数据与生产数据的分离策略，导致组件可复用性差且无法对接真实数据源。
+3. 模型在编写 utils.js 时定义了 isSpaceActive 函数，随后在编写 TenantSwitch.vue 时将其添加到 import 列表中，但在模板逻辑中始终只使用 isSpaceExpired。模型在切换上下文后未回溯检查已导入的函数是否实际被消费，暴露出缺乏从创建意识到修剪意识的转变。
+4. 模型在编写 onMounted 逻辑时先执行 spaces.value = mockSpaces 再通过 getDefaultSpace(mockSpaces) 获取当前空间 ID，未使用 getDefaultSpace(spaces.value) 保持数据源一致性。模型在代码审查阶段未质疑为何对同一数据使用两个不同的引用源，表明缺少对状态管理一致性的自检行为。
+5. 模型仅用简单的 setTimeout 加随机概率来模拟异步操作和失败场景，没有规划使用 Vue props 来接受外部的切换和设置回调函数，而是将模拟层与业务逻辑层耦合在同一方法内，导致代码的可测试性和可维护性下降，后续对接真实 API 时需要大量重构。

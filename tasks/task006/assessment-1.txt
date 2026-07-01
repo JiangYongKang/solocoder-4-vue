@@ -1,12 +1,12 @@
 产物不满意：
-1. 在 authorizationState.js 中，confirmAuthorization 和 rejectAuthorization 函数的重复提交限制设计为依赖外部传入 hasConfirmed 参数，而非在函数内部维护提交状态。组件层 handleConfirm 中使用 isSubmitting ref 来控制防重复，纯 JS 层的 hasConfirmed 仅在测试中通过手动传参验证，并未实现真正的状态感知式防重复提交能力。该设计将核心安全逻辑分散在两个层面且缺乏内聚性，任何人调用这两个函数时只要不传或传 false 给 hasConfirmed 就能绕过重复提交保护。
-2. authorizationState.js 中的 markAsScanned 函数通过硬编码判断 currentStatus === RISK 来手工构造返回值，refreshAuthorization 同样硬编码判断 currentStatus === PENDING_SCAN，这两个函数绕过了 transitionStatus 的正常状态校验流程。VALID_TRANSITIONS 表中 RISK 的合法目标不包含自身、PENDING_SCAN 也不包含自身，导致维护者无法从状态迁移表读取到完整的合法转换信息，状态机的一致性被硬编码的分支逻辑破坏。
-3. DeviceAuthorization.vue 中 handleConfirm 函数在设置 isSubmitting.value = true 后执行了一个 600ms 的 setTimeout 延迟，然后再调用纯同步的 confirmAuthorization 函数。这个延迟放在业务逻辑调用之前没有任何实际意义，confirmAuthorization 是同步函数不存在网络请求模拟需求，600ms 的等待反而延长了用户在点击确认后看到反馈的时间。如果是想模拟 API 调用，延迟应该放在确认操作之后而非之前。
-4. DeviceAuthorization.vue 中 canOperate computed 同时检查 isTerminalStatus 和 canConfirm/canReject，但 isTerminalStatus 将 TIMEOUT 列为终止态，而 TIMEOUT 状态实际可以通过 refreshAuthorization 转换回 PENDING_SCAN。将 TIMEOUT 归为"不可操作"的终止态在语义上不准确，因为刷新操作是可用的。按钮禁用逻辑中还同时检查 isExpired computed，导致同一个超时场景被 isTerminalStatus 和 isExpired 两层条件分散控制，增加了按钮状态判断的复杂度。
-5. authorizationState.js 中的 shouldShowRiskWarning 函数返回 status === RISK 的布尔值，getHighRiskAdvice 函数返回风险建议数组，这些辅助函数封装层次合理。但 DeviceAuthorization.vue 组件中 isRiskStatus 使用 shouldShowRiskWarning 来判断是否显示风险卡片，而 currentRiskAdvice 直接传入 deviceRiskLevel.value 调用 getHighRiskAdvice。deviceRiskLevel 仅在被模拟风险扫描时才设置为非 null，异常风险场景下如果通过外部标记为 RISK 状态但未设置 deviceRiskLevel，风险卡片将显示但建议内容为空。
+1. authorizationState.js 的 confirmAuthorization 和 rejectAuthorization 函数的重复提交限制依赖外部传入 hasConfirmed 参数，而非在函数内部维护提交状态。组件层使用 isSubmitting ref 控制防重复，纯 JS 层的参数仅在测试中手动传参验证，未实现真正的状态感知式防重复提交能力。该设计将核心安全逻辑分散在两个层面且缺乏内聚性，调用方只要不传或传 false 给 hasConfirmed 就能绕过重复提交保护。
+2. authorizationState.js 的 markAsScanned 和 refreshAuthorization 函数通过硬编码判断当前状态来手工构造返回值，绕过了 transitionStatus 的正常状态校验流程。VALID_TRANSITIONS 表中对应状态的合法目标不包含自身，导致维护者无法从状态迁移表读取到完整的合法转换信息，状态机的一致性被硬编码的分支逻辑破坏。模型选择了局部修补而非从状态定义层面解决同状态转换问题。
+3. DeviceAuthorization.vue 的 handleConfirm 函数在设置提交状态后执行了 600ms 延时再调用纯同步的 confirmAuthorization 函数。这个延迟放在业务逻辑之前没有任何实际意义，confirmAuthorization 是同步函数不存在异步请求需求，延时的等待反而延长了用户在点击确认后看到反馈的时间。模型似乎机械地模仿了其他页面的异步模式但对业务语义缺乏关注。
+4. DeviceAuthorization.vue 的 canOperate 计算属性将 TIMEOUT 列为终止态，但 TIMEOUT 状态实际可通过 refreshAuthorization 转换回 PENDING_SCAN。将 TIMEOUT 归为不可操作的终止态在语义上不准确，因为刷新操作在超时状态下仍然可用。按钮禁用逻辑中还同时检查 isExpired 计算属性，导致同一个超时场景被两层条件分散控制，增加了按钮状态判断的复杂度和维护成本。
+5. DeviceAuthorization.vue 中使用 shouldShowRiskWarning 判断是否显示风险卡片，但风险建议内容通过传入 deviceRiskLevel 调用 getHighRiskAdvice 获取。deviceRiskLevel 仅在模拟风险扫描时才设置为非 null，如果通过外部标记为 RISK 状态但未设置 deviceRiskLevel，风险卡片将显示但建议内容为空。风险卡片显示条件与建议数据获取使用了不同步的数据源。
 
 过程不满意：
-1. 在 COT 约第 45 步到第 130 步之间，模型先阅读了 identity-verification 参考代码后直接进入编码，没有针对设备授权的独特需求（倒计时超时、风险分级、模拟扫描）做独立的前置分析。模型直接模仿参考模块的结构依次创建 constants、state、vue 和测试文件，但在判断状态流转时忽略了同状态转换的边界场景，导致 markAsScanned 在 RISK 状态和 refreshAuthorization 在 PENDING_SCAN 状态下首次实现错误，需在测试失败后返工修复。
-2. 在 COT 约第 240 步测试失败后，模型的修复决策路径是对 markAsScanned 和 refreshAuthorization 分别添加硬编码的特殊处理分支来绕过状态校验，而非重新审视和调整 VALID_TRANSITIONS 表来在状态定义层面支持同状态转换。模型选择了局部修补的快速方案，这一决策路径表明在面对状态机边界问题时缺乏对设计一致性的考量，增加了代码维护的隐性负担，后续开发者可能因状态表与函数行为不一致而引入新错误。
-3. 在 COT 约第 175 步编写 DeviceAuthorization.vue 时，模型在 handleConfirm 中引入了无意义的 600ms setTimeout 等待，但在整个思考过程中没有任何关于这个延迟意图的解释或推敲。模型似乎在机械地模仿其他页面中可能存在的人工延迟模式，但设备授权场景下的确认操作是纯状态转换没有后端调用，这个延迟既不必要也没有文档说明，说明模型在编写组件交互逻辑时对业务语义缺乏足够关注。
-4. 在 COT 第 1 到 40 步的探索阶段，模型查看了 identity-verification 的所有文件包括 IdentityVerification.vue、verificationState.js、constants.js 和对应测试，说明模型有意识参考已有代码风格。但模型在整个编码过程中始终没有查看项目中的 vitest 配置或 package.json 中的测试配置，也未运行 pnpm run test 来确认现有测试总数作为基准。这种缺少基准验证的习惯意味着如果项目测试基础设施有特殊配置或依赖，模型无法在第一时间发现潜在的兼容性问题。
+1. 模型在阅读参考代码后直接进入编码，没有针对设备授权的独特需求如倒计时超时、风险分级、模拟扫描做独立的前置分析。模型直接模仿参考模块的结构依次创建文件，但在判断状态流转时忽略了同状态转换的边界场景，导致 markAsScanned 和 refreshAuthorization 在特殊状态下的实现错误，需要在测试失败后返工修复。
+2. 模型在测试失败后的修复决策是对 markAsScanned 和 refreshAuthorization 分别添加硬编码的特殊处理分支来绕过状态校验，而非重新审视和调整 VALID_TRANSITIONS 表在状态定义层面支持同状态转换。模型选择了局部修补的快速方案，在面对状态机边界问题时缺乏对设计一致性的考量，增加了代码维护的隐性负担。
+3. 模型在编写 handleConfirm 时引入了无意义的 600ms 延时等待，但在整个思考过程中没有任何关于这个延迟意图的解释或推敲。模型在机械地模仿其他页面可能存在的人工延迟模式，但设备授权场景下的确认操作是纯状态转换没有后端调用，这个延迟既不必要也没有文档说明，表明模型对业务语义缺乏关注。
+4. 模型在探索阶段查看了参考模块的所有文件说明有意识参考已有代码风格，但整个编码过程中始终没有查看项目的测试配置或 package.json 中的依赖信息，也未运行测试来确认现有测试总数作为基准。这种缺少基准验证的习惯意味着如果项目测试基础设施有特殊配置或依赖，模型无法在第一时间发现潜在的兼容性问题。

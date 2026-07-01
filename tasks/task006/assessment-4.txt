@@ -1,9 +1,3 @@
-产物满意：
-1. DeviceAuthorization.vue 第 289 行新增 `isActionDisabled` computed，模板层按钮（第 141 行和第 149 行）和 JS 层守卫（第 371 行和第 385 行 handleConfirm / handleReject）均引用同一表达式 `!canOperate.value || isSubmitting.value`，彻底消除了「同一决策逻辑在两层用不同表达式」的不一致问题。`canShowActions`（第 278 行）已确保按钮仅在 `SCANNED_PENDING` 或 `RISK` 状态且 `!isOperationDone` 时渲染，因此 `isActionDisabled` 相较旧模板表达式 `isSubmitting || isExpired` 多出的 `isOperationDone` 和状态不匹配限制不会产生实际功能差异，语义等价且向后兼容。
-2. index.js 第 12-17 行已补回 canTransition、getNextPossibleTransitions、transitionStatus、canConfirm、canReject、canRefresh 六个中间层纯查询函数，补全后白名单分类清晰（纯显示工具 8 个 + 状态机查询 6 个 + 推荐管理器 2 个 + 辅助工具 1 个），恢复了之前通过 index.js 使用这些函数的兼容性。
-3. pnpm run test 报告 1403 passed，全部测试通过。
+产物不满意：
 
-过程满意：
-1. 模型在修改前先使用 view_files 阅读了 DeviceAuthorization.vue 完整代码，对现有代码状态建立了认知后再进行编辑，避免了盲目修改。
-2. 修改采用「先建 computed → 改模板绑定 → 改 JS 守卫」的递进顺序，每一步聚焦单一变更，思路清晰且可回滚。
-3. 完成所有代码修改后通过 pnpm run test 验证，确认 1403 个测试全部通过后再结束任务，有良好的验证闭环。
+过程不满意：

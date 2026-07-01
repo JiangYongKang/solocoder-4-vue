@@ -1,13 +1,13 @@
 产物不满意：
-1. formValidation.js 中 validatePassword 函数在入口处对 password 做了非空和类型判断后，紧接着又执行了一个纯冗余的 if (!password) 检查，由于前一个条件已经覆盖了所有假值情况，第二个分支永远不会被触发。同样的死代码模式也出现在 validateCurrentPassword 和 validateNewPassword 函数中，每个函数各有一段完全相同的不可达代码。当其他开发者阅读或维护这段代码时，会困惑为什么同一个条件要检查两次，降低代码可读性和维护效率。应该删除这三处不可达代码块，保持函数的简洁和逻辑清晰。
-2. RegisterPage.vue 中确认密码输入框同时声明了动态属性 type="showConfirmPassword ? text : password" 和静态属性 type="password"，Vue 在编译时会将动态绑定作为优先值，但静态 type="password" 的存在会混淆代码意图。当开发者需要修改输入框行为时，会看到两个冲突的 type 声明而产生误解，且这种写法在模板中属于无意义的重复声明。应该删除多余的静态 type="password"，仅保留动态绑定即可。
-3. ProfilePage.vue 从 authState.js 中导入了 clearAuthState 函数，但在整个组件的 script setup 代码块含 template 和所有函数中从未调用过它。组件退出登录逻辑使用的是 logoutUser 而非 clearAuthState，因此该导入完全是无效的、未使用的依赖。当代码审查或 Tree Shaking 工具检查时，会发现这个多余导入，且在大型项目中积累这类问题会增加包体积和维护负担。应该从 import 语句中移除 clearAuthState，保持导入的精简和准确。
-4. authState.js 中 generateToken 函数使用 Math.random 生成 Token 的随机部分，Math.random 不是密码学安全的随机数生成器。虽然提示词要求使用本地状态模拟 Token，但按照安全编码规范，任何涉及会话令牌的场景都应使用加密安全的随机源。在真实性要求较高的场景中，攻击者可能通过预测 Math.random 的种子来伪造 Token。应该使用 crypto.getRandomValues 或 Web Crypto API 的随机数生成方法替代 Math.random。
-5. AuthSystem.vue 通过动态组件 component is 向所有子页面传递 token-expire-at 属性，但 LoginPage.vue、RegisterPage.vue、ForgotPasswordPage.vue 都没有在 defineProps 中声明该属性。虽然 Vue 不会因此报错，但多余的属性传递表明了组件接口设计不够精确，未登录页面组件完全不需要接收 Token 过期时间。当将来需要重构或类型检查时，这种不精确的接口会导致混乱。应该在 AuthSystem.vue 中判断当前路由是否为受保护路由，仅对需要 Token 信息的组件传递该属性。
+1. formValidation.js 中 validatePassword、validateCurrentPassword 和 validateNewPassword 三个函数均存在死代码：入口处对参数做了非空和类型判断后，紧接着又执行了冗余的空值检查，由于前一个条件已覆盖所有假值情况，第二个分支永远不会被触发。相同的死代码模式在三处重复出现，当其他开发者维护这段代码时会困惑为何同一条件需检查两次，降低代码可读性和维护效率。
+2. RegisterPage.vue 中确认密码输入框同时声明了动态属性 type 和静态 type="password"，Vue 编译时以动态绑定为优先值，但静态声明的存在会混淆代码意图。当开发者修改输入框行为时，会看到两个冲突的 type 声明而产生误解，这种模板中的无意义重复增加了代码噪音，可能让后续维护者误以为静态声明有特殊作用。
+3. ProfilePage.vue 从 authState.js 中导入了 clearAuthState 函数，但在整个组件的 script setup 和所有函数中从未调用过它。组件退出登录逻辑使用的是 logoutUser 而非 clearAuthState，因此该导入完全是无效的未使用依赖。当 Tree Shaking 工具检查时会发现这个多余导入，在大型项目中积累此类问题会增加包体积和维护负担。
+4. authState.js 中 generateToken 函数使用 Math.random 生成 Token 的随机部分，但 Math.random 不是密码学安全的随机数生成器。按照安全编码规范，任何涉及会话令牌的场景都应使用加密安全的随机源，攻击者可能通过预测 Math.random 的种子来伪造 Token。在生产环境中这种实现方式存在明显的安全隐患。
+5. AuthSystem.vue 通过动态组件向所有子页面传递 token-expire-at 属性，但 LoginPage.vue、RegisterPage.vue、ForgotPasswordPage.vue 都没有在 defineProps 中声明该属性。多余的属性传递表明组件接口设计不够精确，未登录页面完全不需要接收 Token 过期时间。当需要重构或类型检查时，这种不精确的接口设计会造成混乱。
 
 过程不满意：
-1. 模型在编写 LoginPage.vue、RegisterPage.vue、ForgotPasswordPage.vue 三个页面组件时，直接使用了 router-link 进行页面跳转，但项目中根本没有安装 vue-router 依赖。该问题在组件全部写完、准备集成到 App.vue 时才被模型自己发现，随后返回逐一修改三个组件，将 router-link 替换为 emit navigate 按钮模式。如果在动手前先用 Grep 搜索 package.json 中的 vue-router 依赖或查看已有页面的导航实现方式，这一步返工完全可以避免，节省了约一轮的编辑时间。
-2. 模型在完成全部七个核心文件和五个 Vue 组件的编写后才首次运行 pnpm run test，没有采用增量测试的策略。结果测试运行时出现了 localStorage 不可用的报错，此时需要同时追溯 authState.js 和三个测试文件中所有涉及 localStorage 的地方。如果采取逐个模块编写后立即测试的策略，就可以在写完 authState.js 后立刻发现环境问题并集中修复，不会出现需要在多个已完成文件中分散替换 localStorage 引用的情况，减少了排查和批量替换的成本。
-3. 模型在编写 authState.js 时完全没考虑 Node.js 测试环境不支持 localStorage 的问题，直接使用全局 localStorage API。测试失败后才创建了 storage 适配层做降级处理，随后又发现需要修改 AuthSystem.vue 中直接访问 localStorage 的代码，以及测试文件中通过 _storage 模拟过期的测试因内存变量不同步而失败。整个过程经历了三次测试-修复循环才让全部 151 个测试通过，如果设计阶段就引入存储抽象层，这些迭代完全可以压缩为一次。
-4. 模型在 session-cot-1.md 的最终回复中使用英文输出了完整的实现总结，包括标题、表格、需求对照、启动命令等所有内容。根据用户规则应使用简体中文回复，但模型在汇报阶段完全切换到了英文，导致用户需要阅读英文文档来了解中文项目的中文提示词的实现结果。这种语言不一致降低了交付体验，且在需要用户确认关键信息的场景下可能造成理解偏差。
-5. 模型在编写完所有组件后没有启动开发服务器进行人工渲染验证，仅依赖 pnpm run test 来确认实现是否正确。单元测试只能验证纯 JS 逻辑，无法覆盖 Vue 组件的模板渲染、样式表现、表单交互流程和响应式布局在 375px 宽度下的实际显示效果。模型直接在会话中声称全部完成且功能就绪，但没有提供任何截图或描述渲染结果的证据，这属于过度依赖测试而不验证实际可见产物的行为。
+1. 模型在编写 LoginPage.vue、RegisterPage.vue、ForgotPasswordPage.vue 三个页面组件时直接使用了 router-link 进行页面跳转，但项目中根本没有安装 vue-router 依赖。该问题在组件全部写完后才被发现，随后返回逐一将 router-link 替换为 emit 导航模式。如果动手前先搜索 package.json 中的依赖或查看已有页面的导航实现方式，返工完全可以避免。
+2. 模型在完成全部七个核心文件和五个 Vue 组件后才首次运行 pnpm run test，未采用增量测试策略。测试运行时出现 localStorage 不可用报错，此时需同时追溯 authState.js 和三个测试文件中所有涉及 localStorage 的位置。若采取逐个模块编写后立即测试的策略，可在写完首个模块后就发现环境问题并集中修复，减少分散排查和批量替换的成本。
+3. 模型在编写 authState.js 时完全没考虑 Node.js 测试环境不支持 localStorage 的问题，直接使用全局 API。测试失败后才创建 storage 适配层做降级处理，随后又发现需修改 AuthSystem.vue 中的相关代码以及测试文件因内存变量不同步而失败。整个过程经历三次测试修复循环才让全部测试通过，若设计阶段就引入存储抽象层这些迭代可以压缩为一次。
+4. 模型在最终回复中使用英文输出了完整的实现总结，包括标题、表格、需求对照和启动命令等所有内容。根据规则应使用简体中文回复，但模型在汇报阶段完全切换到英文，导致用户需阅读英文文档来了解中文项目的实现结果。这种语言不一致降低了交付体验，在需用户确认关键信息时可能造成理解偏差。
+5. 模型在编写完所有组件后没有启动开发服务器进行人工渲染验证，仅依赖 pnpm run test 确认实现正确。单元测试只能验证纯 JS 逻辑，无法覆盖 Vue 组件的模板渲染、样式表现、表单交互流程和响应式布局的实际显示效果。模型直接在会话中声称全部完成且功能就绪，但未提供任何渲染验证证据，属于过度依赖测试而不验证实际可见产物的行为。
