@@ -1,0 +1,209 @@
+export const INVITE_CODE = {
+  MIN_LENGTH: 6,
+  MAX_LENGTH: 12,
+  PATTERN: /^[A-Z0-9]{6,12}$/,
+  CHARSET: 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
+  PREFIX: 'INV'
+}
+
+export const INVITE_STATUS = {
+  PENDING: 'pending',
+  REGISTERED: 'registered',
+  ACTIVE: 'active',
+  CONVERTED: 'converted',
+  EXPIRED: 'expired',
+  CANCELLED: 'cancelled'
+}
+
+export const INVITE_STATUS_LABELS = {
+  [INVITE_STATUS.PENDING]: '待注册',
+  [INVITE_STATUS.REGISTERED]: '已注册',
+  [INVITE_STATUS.ACTIVE]: '活跃中',
+  [INVITE_STATUS.CONVERTED]: '已转化',
+  [INVITE_STATUS.EXPIRED]: '已过期',
+  [INVITE_STATUS.CANCELLED]: '已取消'
+}
+
+export const INVITE_STATUS_ICONS = {
+  [INVITE_STATUS.PENDING]: '⏳',
+  [INVITE_STATUS.REGISTERED]: '✅',
+  [INVITE_STATUS.ACTIVE]: '🔥',
+  [INVITE_STATUS.CONVERTED]: '💰',
+  [INVITE_STATUS.EXPIRED]: '⏰',
+  [INVITE_STATUS.CANCELLED]: '❌'
+}
+
+export const INVITE_STATUS_COLORS = {
+  [INVITE_STATUS.PENDING]: '#f59e0b',
+  [INVITE_STATUS.REGISTERED]: '#3b82f6',
+  [INVITE_STATUS.ACTIVE]: '#10b981',
+  [INVITE_STATUS.CONVERTED]: '#8b5cf6',
+  [INVITE_STATUS.EXPIRED]: '#9ca3af',
+  [INVITE_STATUS.CANCELLED]: '#ef4444'
+}
+
+export const SETTLEMENT_STATUS = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  SETTLED: 'settled',
+  FROZEN: 'frozen',
+  REJECTED: 'rejected'
+}
+
+export const SETTLEMENT_STATUS_LABELS = {
+  [SETTLEMENT_STATUS.PENDING]: '待到账',
+  [SETTLEMENT_STATUS.PROCESSING]: '结算中',
+  [SETTLEMENT_STATUS.SETTLED]: '已到账',
+  [SETTLEMENT_STATUS.FROZEN]: '已冻结',
+  [SETTLEMENT_STATUS.REJECTED]: '已驳回'
+}
+
+export const SETTLEMENT_STATUS_ICONS = {
+  [SETTLEMENT_STATUS.PENDING]: '⏳',
+  [SETTLEMENT_STATUS.PROCESSING]: '🔄',
+  [SETTLEMENT_STATUS.SETTLED]: '✅',
+  [SETTLEMENT_STATUS.FROZEN]: '🔒',
+  [SETTLEMENT_STATUS.REJECTED]: '❌'
+}
+
+export const SETTLEMENT_STATUS_COLORS = {
+  [SETTLEMENT_STATUS.PENDING]: '#f59e0b',
+  [SETTLEMENT_STATUS.PROCESSING]: '#3b82f6',
+  [SETTLEMENT_STATUS.SETTLED]: '#10b981',
+  [SETTLEMENT_STATUS.FROZEN]: '#ef4444',
+  [SETTLEMENT_STATUS.REJECTED]: '#6b7280'
+}
+
+export const FREEZE_REASON = {
+  SUSPICIOUS_ACTIVITY: 'suspicious_activity',
+  SELF_INVITE: 'self_invite',
+  BOT_ACCOUNT: 'bot_account',
+  DUPLICATE_INVITE: 'duplicate_invite',
+  INVALID_CONVERSION: 'invalid_conversion',
+  POLICY_VIOLATION: 'policy_violation',
+  RISK_REVIEW: 'risk_review',
+  REFUNDED_ORDER: 'refunded_order'
+}
+
+export const FREEZE_REASON_LABELS = {
+  [FREEZE_REASON.SUSPICIOUS_ACTIVITY]: '可疑活动',
+  [FREEZE_REASON.SELF_INVITE]: '自我邀请',
+  [FREEZE_REASON.BOT_ACCOUNT]: '机器人账号',
+  [FREEZE_REASON.DUPLICATE_INVITE]: '重复邀请',
+  [FREEZE_REASON.INVALID_CONVERSION]: '无效转化',
+  [FREEZE_REASON.POLICY_VIOLATION]: '违反政策',
+  [FREEZE_REASON.RISK_REVIEW]: '风险审核',
+  [FREEZE_REASON.REFUNDED_ORDER]: '订单退款'
+}
+
+export const FREEZE_REASON_DESCRIPTIONS = {
+  [FREEZE_REASON.SUSPICIOUS_ACTIVITY]: '检测到该邀请存在异常登录或操作行为，系统自动冻结以保障账户安全。',
+  [FREEZE_REASON.SELF_INVITE]: '检测到邀请人与被邀请人为同一用户或关联账号，违反邀请规则。',
+  [FREEZE_REASON.BOT_ACCOUNT]: '被邀请账号被识别为机器人或批量注册账号，不符合返利条件。',
+  [FREEZE_REASON.DUPLICATE_INVITE]: '被邀请用户已被其他邀请人先行邀请，无法重复计算奖励。',
+  [FREEZE_REASON.INVALID_CONVERSION]: '被邀请用户的消费行为未达到有效转化标准，或订单存在异常。',
+  [FREEZE_REASON.POLICY_VIOLATION]: '邀请行为违反平台用户协议或邀请活动规则。',
+  [FREEZE_REASON.RISK_REVIEW]: '该笔奖励正在进行人工风险审核，审核通过后将自动解冻。',
+  [FREEZE_REASON.REFUNDED_ORDER]: '被邀请用户的关联订单已退款，对应奖励需扣除。'
+}
+
+export const FREEZE_REASON_SUGGESTIONS = {
+  [FREEZE_REASON.SUSPICIOUS_ACTIVITY]: '如确认无异常操作，请联系客服提交申诉，并提供相关证明材料。审核周期一般为3-5个工作日。',
+  [FREEZE_REASON.SELF_INVITE]: '自我邀请属于违规行为，该笔奖励将被永久扣除。请遵守活动规则，邀请真实用户。',
+  [FREEZE_REASON.BOT_ACCOUNT]: '如确认是真实用户，请让被邀请人完成实名认证并进行正常操作后，联系客服申诉。',
+  [FREEZE_REASON.DUPLICATE_INVITE]: '邀请关系以首次成功绑定为准，建议尽快分享邀请码给更多新用户。',
+  [FREEZE_REASON.INVALID_CONVERSION]: '请确保被邀请用户完成有效消费（非试用、非退款订单），如有疑问可提供订单号联系客服核实。',
+  [FREEZE_REASON.POLICY_VIOLATION]: '请仔细阅读《邀请活动规则》，后续规范邀请行为。如有异议可提交申诉。',
+  [FREEZE_REASON.RISK_REVIEW]: '请耐心等待审核完成，审核结果将通过站内信通知。如需加快审核，可联系客服补充信息。',
+  [FREEZE_REASON.REFUNDED_ORDER]: '订单退款后返利会相应扣除，待被邀请人产生新的有效消费后会重新计算奖励。'
+}
+
+export const FREEZE_SEVERITY = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  CRITICAL: 'critical'
+}
+
+export const FREEZE_REASON_SEVERITY = {
+  [FREEZE_REASON.SUSPICIOUS_ACTIVITY]: FREEZE_SEVERITY.MEDIUM,
+  [FREEZE_REASON.SELF_INVITE]: FREEZE_SEVERITY.HIGH,
+  [FREEZE_REASON.BOT_ACCOUNT]: FREEZE_SEVERITY.HIGH,
+  [FREEZE_REASON.DUPLICATE_INVITE]: FREEZE_SEVERITY.LOW,
+  [FREEZE_REASON.INVALID_CONVERSION]: FREEZE_SEVERITY.LOW,
+  [FREEZE_REASON.POLICY_VIOLATION]: FREEZE_SEVERITY.CRITICAL,
+  [FREEZE_REASON.RISK_REVIEW]: FREEZE_SEVERITY.MEDIUM,
+  [FREEZE_REASON.REFUNDED_ORDER]: FREEZE_SEVERITY.LOW
+}
+
+export const WITHDRAWAL_STATUS = {
+  AVAILABLE: 'available',
+  MIN_AMOUNT_NOT_MET: 'min_amount_not_met',
+  IDENTITY_NOT_VERIFIED: 'identity_not_verified',
+  ACCOUNT_RESTRICTED: 'account_restricted',
+  COOLDOWN_ACTIVE: 'cooldown_active',
+  MAINTENANCE: 'maintenance'
+}
+
+export const WITHDRAWAL_STATUS_LABELS = {
+  [WITHDRAWAL_STATUS.AVAILABLE]: '可提现',
+  [WITHDRAWAL_STATUS.MIN_AMOUNT_NOT_MET]: '未达最低提现金额',
+  [WITHDRAWAL_STATUS.IDENTITY_NOT_VERIFIED]: '请先完成实名认证',
+  [WITHDRAWAL_STATUS.ACCOUNT_RESTRICTED]: '账户受限，暂不可提现',
+  [WITHDRAWAL_STATUS.COOLDOWN_ACTIVE]: '提现冷却中',
+  [WITHDRAWAL_STATUS.MAINTENANCE]: '系统维护中'
+}
+
+export const REWARD_RULES = {
+  NEW_USER_BONUS: 10,
+  FIRST_PURCHASE_PERCENT: 0.1,
+  FIRST_PURCHASE_MAX: 100,
+  RECURRING_PERCENT: 0.05,
+  RECURRING_MAX: 50,
+  RECURRING_MONTHS: 6,
+  TIER_BONUS: [
+    { invites: 5, bonus: 50 },
+    { invites: 10, bonus: 150 },
+    { invites: 20, bonus: 400 },
+    { invites: 50, bonus: 1200 },
+    { invites: 100, bonus: 3000 }
+  ]
+}
+
+export const SETTLEMENT_RULES = {
+  FREEZE_DAYS: 15,
+  SETTLEMENT_DAY: 1,
+  MIN_WITHDRAWAL_AMOUNT: 100,
+  MAX_WITHDRAWAL_AMOUNT: 50000,
+  WITHDRAWAL_COOLDOWN_HOURS: 24,
+  SETTLEMENT_CYCLE_DAYS: 30
+}
+
+export const SHARE_CHANNELS = {
+  WECHAT: 'wechat',
+  WEIBO: 'weibo',
+  QQ: 'qq',
+  LINK: 'link',
+  QRCODE: 'qrcode',
+  COPY: 'copy'
+}
+
+export const SHARE_CHANNEL_LABELS = {
+  [SHARE_CHANNELS.WECHAT]: '微信',
+  [SHARE_CHANNELS.WEIBO]: '微博',
+  [SHARE_CHANNELS.QQ]: 'QQ',
+  [SHARE_CHANNELS.LINK]: '复制链接',
+  [SHARE_CHANNELS.QRCODE]: '二维码',
+  [SHARE_CHANNELS.COPY]: '复制邀请码'
+}
+
+export const SHARE_CHANNEL_ICONS = {
+  [SHARE_CHANNELS.WECHAT]: '💬',
+  [SHARE_CHANNELS.WEIBO]: '📱',
+  [SHARE_CHANNELS.QQ]: '🐧',
+  [SHARE_CHANNELS.LINK]: '🔗',
+  [SHARE_CHANNELS.QRCODE]: '📲',
+  [SHARE_CHANNELS.COPY]: '📋'
+}
+
+export const DEFAULT_BASE_URL = 'https://example.com/invite'

@@ -1,5 +1,7 @@
 <template>
-  <main class="home">
-    <h1>SoloCoder 4 Vue</h1>
-  </main>
+  <GrowthLevel />
 </template>
+
+<script setup>
+import { GrowthLevel } from './pages/growth-level/index.js'
+</script>

@@ -1,0 +1,6 @@
+export { default as IdentityVerification } from './IdentityVerification.vue'
+export * from './constants.js'
+export * from './certificateTypes.js'
+export * from './ocrService.js'
+export * from './verificationState.js'
+export * from './benefits.js'
