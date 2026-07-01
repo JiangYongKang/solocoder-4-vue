@@ -114,7 +114,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { AUTH_ROUTES } from './constants.js'
-import { getUser, getToken, logoutUser, clearAuthState } from './authState.js'
+import { getUser, getToken, logoutUser } from './authState.js'
 
 const props = defineProps({
   tokenExpireAt: {

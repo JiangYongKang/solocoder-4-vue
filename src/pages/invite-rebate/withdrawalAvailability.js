@@ -99,22 +99,26 @@ export function checkWithdrawalAvailability(options = {}) {
   }
 
   if (requestedAmount !== null && requestedAmount > maxAmount) {
+    const excess = requestedAmount - maxAmount
     return {
       available: false,
-      status: WITHDRAWAL_STATUS.MIN_AMOUNT_NOT_MET,
+      status: WITHDRAWAL_STATUS.MAX_AMOUNT_EXCEEDED,
       reason: `提现金额超出单笔上限`,
-      suggestion: `单笔提现最高 ¥${maxAmount}，请分多次提现`,
+      suggestion: `单笔提现最高 ¥${maxAmount}，当前金额超出 ¥${excess.toFixed(2)}，请分多次提现`,
+      excess,
       minAmount,
       maxAmount
     }
   }
 
   if (requestedAmount !== null && requestedAmount > availableBalance) {
+    const shortfall = requestedAmount - availableBalance
     return {
       available: false,
-      status: WITHDRAWAL_STATUS.MIN_AMOUNT_NOT_MET,
+      status: WITHDRAWAL_STATUS.INSUFFICIENT_BALANCE,
       reason: '可提现余额不足',
-      suggestion: `当前可提现 ¥${availableBalance.toFixed(2)}，提现金额不能超过可提现余额`,
+      suggestion: `当前可提现 ¥${availableBalance.toFixed(2)}，提现金额不能超过可提现余额，还需 ¥${shortfall.toFixed(2)}`,
+      shortfall,
       minAmount,
       maxAmount
     }

@@ -1,0 +1,18 @@
+产物满意：无
+
+过程满意：无
+
+说明：
+模型在第2轮修复中正确且完整地解决了提示词中的所有4个问题：
+
+**问题1（标签函数重复定义）**：gestureState.js 的 getStatusLabel 和 getStepLabel 函数现在直接从 constants.js 导入 GESTURE_STATUS_LABELS 和 GESTURE_STEP_LABELS 常量，并复用其映射（第320-326行）。消除了约20行重复代码，constants.js 中导入的常量不再闲置。
+
+**问题2（硬编码1.6倍缩放因子）**：通过创建 useGestureDrawer composable，主画布和重置弹窗各自拥有独立的坐标系统。smallCanvasSize 基于 canvasSize 动态计算（GestureSettings.vue 第250-253行），resetDrawer 使用 smallCanvasSize 作为自己的画布尺寸，模板中直接使用 resetDrawer.lines.value 和 resetDrawer.gesturePoints.value，无需任何坐标换算。watch(canvasSize) 会在尺寸变化时自动重新初始化两个 drawer 的点位。
+
+**问题3（RESET步骤成为死代码）**：新增 enterResetStep 函数（gestureState.js 第227-243行）将状态转换到 SET + RESET 步骤；startReset 函数（第245-265行）现在要求 currentStep === GESTURE_STEP.RESET，并在该步骤中通过 verifyGesture 验证原手势；cancelReset 函数（第267-292行）也新增了对 SET + RESET 状态的处理。RESET 步骤已完整纳入实际状态转换路径，不再死代码。
+
+**问题4（约200行重复绘制逻辑）**：创建了 useGestureDrawer.js composable，将手势绘制的所有核心逻辑（3x3点位初始化、触摸/鼠标坐标计算、点位检测、绘制生命周期、线条构建、最少点数校验、状态管理、反馈显示）封装为可复用模块。GesturesSettings.vue 中主画布和重置弹窗的事件处理函数简化为对各自 drawer 实例的 thin wrapper 调用，消除了两套平行函数组。
+
+**问题5（测试通过）**：手势设置模块全部4个测试文件共139个测试通过，完整测试套件36个文件共1397个测试全部通过（exit code 0）。
+
+**过程评价**：模型采用了合理的增量修复策略——先修改状态逻辑，再创建 composable，然后重构 Vue 组件，最后编写/更新测试。测试运行后及时发现并修复了 clear() 函数缺少 isDrawing 重置和两实例测试坐标计算的两个失败用例。整体流程高效、有序，无冗余返工或设计失误。

@@ -1,13 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import {
-  canSkip,
-  createSkipWarning,
-  getRemainingSteps,
-  getSkippedStateInfo,
-  confirmSkip,
-  cancelSkip
-} from '../../onboarding/skipConfirmation.js'
+import { describe, expect, it } from 'vitest'
 import { ONBOARDING_STEPS } from '../../onboarding/constants.js'
+import {
+    cancelSkip,
+    canSkip,
+    confirmSkip,
+    createSkipWarning,
+    executeSkip,
+    getRemainingSteps,
+    getSkippedStateInfo
+} from '../../onboarding/skipConfirmation.js'
 
 const WELCOME = ONBOARDING_STEPS.WELCOME
 const PREFERENCES = ONBOARDING_STEPS.PREFERENCES
@@ -215,6 +216,64 @@ describe('skipConfirmation', () => {
       expect(result.success).toBe(true)
       expect(result.skipped).toBe(false)
       expect(result.action).toBe('continue')
+    })
+  })
+
+  describe('executeSkip', () => {
+    it('should execute skip atomically from WELCOME', () => {
+      const result = executeSkip(WELCOME)
+      expect(result.success).toBe(true)
+      expect(result.currentStep).toBe(SKIPPED)
+      expect(result.previousStep).toBe(WELCOME)
+      expect(result.skipped).toBe(true)
+      expect(result.skippedAt).toBeDefined()
+      expect(typeof result.skippedAt).toBe('string')
+      expect(result.remainingSteps).toBeDefined()
+      expect(Array.isArray(result.remainingSteps)).toBe(true)
+    })
+
+    it('should transition currentStep to SKIPPED in one operation', () => {
+      const result = executeSkip(PREFERENCES)
+      expect(result.currentStep).toBe(SKIPPED)
+      expect(result.previousStep).toBe(PREFERENCES)
+      expect(result.remainingSteps).toContain(EXAMPLE_DATA)
+      expect(result.remainingSteps).toContain(CONFIRMATION)
+    })
+
+    it('should execute skip from EXAMPLE_DATA with correct remainingSteps', () => {
+      const result = executeSkip(EXAMPLE_DATA)
+      expect(result.success).toBe(true)
+      expect(result.remainingSteps).toEqual([CONFIRMATION])
+    })
+
+    it('should execute skip from CONFIRMATION with empty remainingSteps', () => {
+      const result = executeSkip(CONFIRMATION)
+      expect(result.success).toBe(true)
+      expect(result.remainingSteps).toEqual([])
+    })
+
+    it('should fail to skip from COMPLETED terminal step', () => {
+      const result = executeSkip(COMPLETED)
+      expect(result.success).toBe(false)
+      expect(result.currentStep).toBe(COMPLETED)
+      expect(result.error).toBeDefined()
+    })
+
+    it('should fail to skip from SKIPPED terminal step', () => {
+      const result = executeSkip(SKIPPED)
+      expect(result.success).toBe(false)
+      expect(result.currentStep).toBe(SKIPPED)
+    })
+
+    it('should fail to skip from invalid step', () => {
+      const result = executeSkip('invalid_step')
+      expect(result.success).toBe(false)
+      expect(result.error).toBeDefined()
+    })
+
+    it('should produce consistent skippedAt timestamp format', () => {
+      const result = executeSkip(WELCOME)
+      expect(result.skippedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     })
   })
 })

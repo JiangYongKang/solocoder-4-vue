@@ -484,7 +484,8 @@ import {
   COOLING_PERIOD_DAYS,
   SMS_CODE_LENGTH,
   EMAIL_CODE_LENGTH,
-  MAX_VERIFICATION_ATTEMPTS
+  MAX_VERIFICATION_ATTEMPTS,
+  VERIFICATION_ERRORS
 } from './constants.js'
 import {
   DATA_IMPACTS,
@@ -492,11 +493,14 @@ import {
   getDataImpactsByScope,
   getIrreversibleItems,
   countDataItems,
-  getScopeLabel
+  getScopeLabel,
+  getHighRiskCategories
 } from './dataImpact.js'
 import {
   performVerificationWithAttempts,
   generateVerificationCode,
+  sendVerificationCodeAsync,
+  verifyIdentityAsync,
   getCodeExpirationTime,
   isCodeExpired,
   getMaskedPhone,
@@ -558,6 +562,7 @@ const verifying = ref(false)
 const sendingCode = ref(false)
 const codeCountdown = ref(0)
 const codeExpirationAt = ref(null)
+const generatedCode = ref(null)
 let countdownTimer = null
 
 const maskPhone = '13800138000'
@@ -591,7 +596,7 @@ const currentImpactData = computed(() => {
     return getIrreversibleItems()
   }
   if (activeImpactTab.value === 'high_risk') {
-    return DATA_IMPACTS.filter(c => c.warningLevel === 'high')
+    return getHighRiskCategories()
   }
   return DATA_IMPACTS
 })
@@ -642,9 +647,9 @@ const milestones = computed(() => {
 })
 
 const clearScopes = [
-  { value: DATA_CLEAR_SCOPE.IMMEDIATE, label: '立即清除' },
-  { value: DATA_CLEAR_SCOPE.COOLING_PERIOD_END, label: '冷静期结束清除' },
-  { value: DATA_CLEAR_SCOPE.RETAINED, label: '依法保留数据' }
+  { value: DATA_CLEAR_SCOPE.IMMEDIATE, label: getScopeLabel(DATA_CLEAR_SCOPE.IMMEDIATE) },
+  { value: DATA_CLEAR_SCOPE.COOLING_PERIOD_END, label: getScopeLabel(DATA_CLEAR_SCOPE.COOLING_PERIOD_END) },
+  { value: DATA_CLEAR_SCOPE.RETAINED, label: getScopeLabel(DATA_CLEAR_SCOPE.RETAINED) }
 ]
 
 const currentClearData = computed(() => {
@@ -697,19 +702,27 @@ async function handleSendCode() {
   if (sendingCode.value || codeCountdown.value > 0 || verificationLocked.value) return
 
   sendingCode.value = true
-  await new Promise(r => setTimeout(r, 1000))
+  verificationError.value = ''
 
-  codeExpirationAt.value = getCodeExpirationTime(5)
-  sendingCode.value = false
-  codeCountdown.value = 60
+  try {
+    const contact = selectedMethod.value === SMS_CODE ? maskPhone : maskEmail
+    const code = await sendVerificationCodeAsync(selectedMethod.value, contact)
+    generatedCode.value = code
+    codeExpirationAt.value = getCodeExpirationTime(5)
+    codeCountdown.value = 60
 
-  countdownTimer = setInterval(() => {
-    codeCountdown.value--
-    if (codeCountdown.value <= 0) {
-      clearInterval(countdownTimer)
-      countdownTimer = null
-    }
-  }, 1000)
+    countdownTimer = setInterval(() => {
+      codeCountdown.value--
+      if (codeCountdown.value <= 0) {
+        clearInterval(countdownTimer)
+        countdownTimer = null
+      }
+    }, 1000)
+  } catch (error) {
+    verificationError.value = error.message || VERIFICATION_ERRORS.NETWORK_ERROR
+  } finally {
+    sendingCode.value = false
+  }
 }
 
 async function handleVerify() {
@@ -718,36 +731,39 @@ async function handleVerify() {
   verifying.value = true
   verificationError.value = ''
 
-  await new Promise(r => setTimeout(r, 800))
-
-  let valueToVerify = verificationValue.value
-  if (selectedMethod.value !== PASSWORD) {
-    if (codeExpirationAt.value && isCodeExpired(codeExpirationAt.value)) {
-      verificationError.value = '验证码已过期，请重新获取'
-      verifying.value = false
-      return
+  try {
+    if (selectedMethod.value !== PASSWORD) {
+      if (!generatedCode.value) {
+        verificationError.value = '请先获取验证码'
+        return
+      }
+      if (codeExpirationAt.value && isCodeExpired(codeExpirationAt.value)) {
+        verificationError.value = '验证码已过期，请重新获取'
+        return
+      }
     }
-    const generatedCode = '123456'
-    valueToVerify = verificationValue.value === generatedCode ? generatedCode : verificationValue.value
+
+    const result = await verifyIdentityAsync(
+      selectedMethod.value,
+      verificationValue.value,
+      verificationAttempts.value,
+      generatedCode.value
+    )
+
+    verificationAttempts.value = result.attempts
+    verificationLocked.value = result.locked
+
+    if (result.valid) {
+      identityVerified.value = true
+      verificationError.value = ''
+    } else {
+      verificationError.value = result.error
+    }
+  } catch (error) {
+    verificationError.value = error.message || VERIFICATION_ERRORS.NETWORK_ERROR
+  } finally {
+    verifying.value = false
   }
-
-  const result = performVerificationWithAttempts(
-    selectedMethod.value,
-    valueToVerify,
-    verificationAttempts.value
-  )
-
-  verificationAttempts.value = result.attempts
-  verificationLocked.value = result.locked
-
-  if (result.valid) {
-    identityVerified.value = true
-    verificationError.value = ''
-  } else {
-    verificationError.value = result.error
-  }
-
-  verifying.value = false
 }
 
 async function handleSubmitCancellation() {

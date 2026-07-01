@@ -1,4 +1,4 @@
-import { COOLING_PERIOD_DAYS, CANCELLATION_STATUS } from './constants.js'
+import { CANCELLATION_STATUS, COOLING_PERIOD_DAYS } from './constants.js'
 
 export function calculateCoolingPeriodEnd(submittedAt, coolingDays = COOLING_PERIOD_DAYS) {
   const submitDate = new Date(submittedAt)
@@ -87,13 +87,16 @@ export function getProgressStage(progressPercentage) {
   if (progressPercentage <= 0) {
     return { stage: 0, label: '待处理' }
   }
-  if (progressPercentage < 50) {
+  if (progressPercentage < 34) {
     return { stage: 1, label: '冷静期初期' }
   }
-  if (progressPercentage < 100) {
-    return { stage: 2, label: '冷静期中' }
+  if (progressPercentage < 67) {
+    return { stage: 2, label: '冷静期中期' }
   }
-  return { stage: 3, label: '即将完成' }
+  if (progressPercentage < 100) {
+    return { stage: 3, label: '冷静期后期' }
+  }
+  return { stage: 4, label: '即将完成' }
 }
 
 export function isInCoolingPeriod(submittedAt, currentTime = new Date().toISOString(), coolingDays = COOLING_PERIOD_DAYS) {

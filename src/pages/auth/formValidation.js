@@ -1,4 +1,4 @@
-import { VALIDATION_RULES, ERROR_MESSAGES } from './constants.js'
+import { ERROR_MESSAGES, VALIDATION_RULES } from './constants.js'
 
 export function validateUsername(username) {
   if (!username || typeof username !== 'string') {
@@ -46,10 +46,6 @@ export function validateEmail(email) {
 
 export function validatePassword(password) {
   if (!password || typeof password !== 'string') {
-    return { valid: false, message: ERROR_MESSAGES.PASSWORD_REQUIRED }
-  }
-
-  if (!password) {
     return { valid: false, message: ERROR_MESSAGES.PASSWORD_REQUIRED }
   }
 
@@ -102,19 +98,11 @@ export function validateCurrentPassword(password) {
     return { valid: false, message: ERROR_MESSAGES.CURRENT_PASSWORD_REQUIRED }
   }
 
-  if (!password) {
-    return { valid: false, message: ERROR_MESSAGES.CURRENT_PASSWORD_REQUIRED }
-  }
-
   return { valid: true, message: null }
 }
 
 export function validateNewPassword(password) {
   if (!password || typeof password !== 'string') {
-    return { valid: false, message: ERROR_MESSAGES.NEW_PASSWORD_REQUIRED }
-  }
-
-  if (!password) {
     return { valid: false, message: ERROR_MESSAGES.NEW_PASSWORD_REQUIRED }
   }
 

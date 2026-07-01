@@ -113,16 +113,34 @@ describe('rewardCalculator', () => {
       expect(calculateTierBonus(firstTier.invites)).toBe(firstTier.bonus)
     })
 
-    it('should return highest tier achieved', () => {
+    it('should accumulate tier bonuses for reached tiers', () => {
       const tiers = REWARD_RULES.TIER_BONUS
       const midTier = tiers[Math.floor(tiers.length / 2)]
+      let expectedAccumulated = 0
+      for (let i = 0; i <= Math.floor(tiers.length / 2); i++) {
+        expectedAccumulated += tiers[i].bonus
+      }
       const bonus = calculateTierBonus(midTier.invites + 5)
-      expect(bonus).toBe(midTier.bonus)
+      expect(bonus).toBe(expectedAccumulated)
     })
 
-    it('should return max tier bonus when exceeding max tier', () => {
-      const lastTier = REWARD_RULES.TIER_BONUS[REWARD_RULES.TIER_BONUS.length - 1]
-      expect(calculateTierBonus(lastTier.invites * 10)).toBe(lastTier.bonus)
+    it('should return sum of all tier bonuses when exceeding max tier', () => {
+      const tiers = REWARD_RULES.TIER_BONUS
+      let totalSum = 0
+      for (let i = 0; i < tiers.length; i++) {
+        totalSum += tiers[i].bonus
+      }
+      const lastTier = tiers[tiers.length - 1]
+      expect(calculateTierBonus(lastTier.invites * 10)).toBe(totalSum)
+    })
+
+    it('should correctly accumulate at exact tier thresholds', () => {
+      const tiers = REWARD_RULES.TIER_BONUS
+      let accumulated = 0
+      for (let i = 0; i < tiers.length; i++) {
+        accumulated += tiers[i].bonus
+        expect(calculateTierBonus(tiers[i].invites)).toBe(accumulated)
+      }
     })
   })
 

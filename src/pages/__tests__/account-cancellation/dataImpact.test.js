@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import {
-  DATA_IMPACTS,
-  IRREVERSIBLE_RISKS,
-  getDataImpactsByScope,
-  getIrreversibleItems,
-  getHighRiskCategories,
-  getScopeLabel,
-  countDataItems
-} from '../../account-cancellation/dataImpact.js'
+import { describe, expect, it } from 'vitest'
 import { DATA_CLEAR_SCOPE } from '../../account-cancellation/constants.js'
+import {
+    DATA_IMPACTS,
+    IRREVERSIBLE_RISKS,
+    countDataItems,
+    getDataImpactsByScope,
+    getHighRiskCategories,
+    getIrreversibleItems,
+    getScopeLabel
+} from '../../account-cancellation/dataImpact.js'
 
 describe('dataImpact', () => {
   describe('DATA_IMPACTS', () => {
@@ -133,9 +133,9 @@ describe('dataImpact', () => {
 
   describe('getScopeLabel', () => {
     it('should return correct label for each scope', () => {
-      expect(getScopeLabel(DATA_CLEAR_SCOPE.IMMEDIATE)).toBe('立即清除')
-      expect(getScopeLabel(DATA_CLEAR_SCOPE.COOLING_PERIOD_END)).toBe('冷静期结束清除')
-      expect(getScopeLabel(DATA_CLEAR_SCOPE.RETAINED)).toBe('依法保留')
+      expect(getScopeLabel(DATA_CLEAR_SCOPE.IMMEDIATE)).toBe('申请提交后立即清除')
+      expect(getScopeLabel(DATA_CLEAR_SCOPE.COOLING_PERIOD_END)).toBe('冷静期结束后清除')
+      expect(getScopeLabel(DATA_CLEAR_SCOPE.RETAINED)).toBe('依法依规保留')
     })
 
     it('should return empty string for invalid scope', () => {

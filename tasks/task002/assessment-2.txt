@@ -1,0 +1,8 @@
+产物不满意：
+1. IdentityVerification.vue 的 handleSubmit 方法中硬编码了 3 条拒绝原因（第 400-404 行），与 verificationState.js 中已定义的 REJECT_REASONS 数组（6 条）形成了重复且不完整的子集。rejectVerification 函数在不传 reason 参数时会自动调用 generateRandomRejectReason() 从完整 6 条中随机选取，但组件却传递了自己维护的 3 条子集，导致模拟审核拒绝时缺少"证件已过期""人脸不符""材料不完整"等场景。这种代码重复意味着当未来需要调整拒绝原因文案时，开发者必须同时修改两个文件中的两个独立数组，容易遗漏。应该移除 IdentityVerification.vue 中的本地 reasons 数组，调用 rejectVerification(status.value) 时不传 reason 参数，复用 verificationState.js 中的单一声源。
+
+过程不满意：
+1. 模型在运行首次 pnpm run test 后发现 account-cancellation 和 onboarding 模块的测试失败，未先确认这些失败是预先存在还是由本次修改引入，就直接开始修改 coolingPeriod.js 的 getProgressStage 边界条件。修改后发现改错了又立即回退，浪费了一轮编辑。正确的做法是先单独运行 identity-verification 模块的测试（npx vitest run src/pages/__tests__/identity-verification/）确认本次修改没有引入回归，再处理其他模块的预先存在失败。
+2. 模型在修改 coolingPeriod.js 时缺乏对测试预期的充分理解，仅凭猜测修改了边界判断逻辑，结果与测试期望不符。这说明模型在动手修改不熟悉的模块之前，没有仔细阅读对应的测试文件来理解现有逻辑的设计意图。应该先全面阅读测试文件理解期望行为，再决定是否需要修改以及如何修改。
+3. 模型在多次运行 pnpm run test 时遇到每次失败测试数量和文件都不同的情况，诊断出可能是 Math.random mock 污染问题后，没有去修复 mock 清理问题（在相关测试文件的 afterEach 中添加 vi.restoreAllMocks），而是使用了 --pool=forks 作为绕过手段。这虽然让测试通过了，但掩盖了测试隔离性问题，后续其他开发者运行同一测试套件时仍会遇到相同的 flaky 失败。应该在受影响的测试文件中正确恢复 mock，从根本上解决测试环境污染问题。
+4. 模型发现 pnpm run build 因 GrowthLevel.vue 编译失败后，在 task002 的修复过程中修改了完全无关的 growth-level 模块的代码。虽然 build 失败会阻塞验证流程，但 repair 其他模块的编译错误超出了本次"审核身份认证模块第 2 轮修复"的任务范围。正确的做法是确认 build 失败为预先存在的问题后，在评估中报告而不在本次任务中修复，或将修复作为独立提交进行。

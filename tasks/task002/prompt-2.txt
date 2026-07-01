@@ -1,0 +1,6 @@
+你实现的账号实名认证流程页面还存在一些问题，需要进行修复：
+1. benefits.js 中 getBenefitsByStatus 函数判断权益是否解锁的逻辑有缺陷，VERIFICATION_BENEFITS 数组中所有权益的 unlocked 字段初始值恒为 true，导致无论认证状态如何，所有权益永远被标记为已解锁，"完成认证后解锁"的锁定权益区域永远无法渲染。需要修正权益初始数据和解锁判断逻辑，让未认证状态下存在未解锁的权益。
+2. IdentityVerification.vue 中 processFile 方法调用 simulateOCRRecognition 时错误率参数被硬编码为 0，导致 OCR 识别永远成功，识别失败的提示和手动修正流程全部成为死代码。需要设置合理的默认错误率。
+3. IdentityVerification.vue 中 handleSubmit 方法在提交审核成功后通过 setTimeout 直接赋值 status.value 来模拟审核结果，绕过了 verificationState.js 中 approveVerification 和 rejectVerification 函数的状态机约束，导致时间戳缺失。需要通过调用状态机函数来完成状态变更。
+4. benefits.js 中 getBenefitsByStatus 和 getRestrictionsByStatus 函数直接使用硬编码字符串 'approved' 比较状态，而非导入 constants.js 中已定义的 VERIFICATION_STATUS 常量。
+5. 修复后需要确保 pnpm run test 全部通过。

@@ -218,20 +218,12 @@ import {
   getStatusDescription,
   getStatusIcon,
   getStatusColor,
-  markAsScanned,
-  markAsRisk,
-  confirmAuthorization,
-  rejectAuthorization,
-  markAsTimeout,
-  refreshAuthorization,
-  canConfirm,
-  canReject,
   isTerminalStatus,
   createCountdownManager,
+  createAuthorizationManager,
   shouldShowRiskWarning,
   getRiskLevelColor,
-  getHighRiskAdvice,
-  generateRequestId
+  getHighRiskAdvice
 } from './authorizationState.js'
 
 const PENDING_SCAN = DEVICE_AUTH_STATUS.PENDING_SCAN
@@ -241,20 +233,26 @@ const REJECTED = DEVICE_AUTH_STATUS.REJECTED
 const TIMEOUT = DEVICE_AUTH_STATUS.TIMEOUT
 const RISK = DEVICE_AUTH_STATUS.RISK
 
-const status = ref(PENDING_SCAN)
-const currentDeviceInfo = ref({})
-const deviceRiskLevel = ref(null)
+const authManager = createAuthorizationManager()
+const status = ref(authManager.getStatus())
 const isSubmitting = ref(false)
-const hasConfirmed = ref(false)
-const rejectReason = ref('')
-const authorizedAt = ref('')
-const rejectedAt = ref('')
-const requestId = ref(generateRequestId())
 const countdownRemaining = ref(DEFAULT_QR_TIMEOUT)
 
 const qrPattern = Array.from({ length: 25 }, () => Math.random() > 0.5)
 
 let countdownManager = null
+
+const managerState = computed(() => authManager.toJSON())
+
+const currentDeviceInfo = computed(() => managerState.value.deviceInfo)
+const deviceRiskLevel = computed(() => managerState.value.riskLevel)
+const rejectReason = computed(() => managerState.value.rejectReason)
+const requestId = computed(() => managerState.value.requestId)
+const isOperationDone = computed(() => managerState.value.isOperationDone)
+
+const timestamps = computed(() => managerState.value.timestamps)
+const authorizedAt = computed(() => timestamps.value.confirmedAt)
+const rejectedAt = computed(() => timestamps.value.rejectedAt)
 
 const statusLabel = computed(() => DEVICE_AUTH_STATUS_LABELS[status.value])
 const statusDescription = computed(() => getStatusDescription(status.value))
@@ -276,13 +274,17 @@ const showCountdown = computed(() => {
   return [PENDING_SCAN, SCANNED_PENDING, RISK].includes(status.value)
 })
 
-const canShowActions = computed(() => canConfirm(status.value) || canReject(status.value))
-
-const canOperate = computed(() => {
-  return !isTerminalStatus(status.value) && (canConfirm(status.value) || canReject(status.value))
+const canShowActions = computed(() => {
+  return (status.value === SCANNED_PENDING || status.value === RISK) && !isOperationDone.value
 })
 
 const isExpired = computed(() => countdownRemaining.value <= 0)
+
+const canOperate = computed(() => {
+  if (isOperationDone.value) return false
+  if (isExpired.value) return false
+  return status.value === SCANNED_PENDING || status.value === RISK
+})
 
 const countdownFormatted = computed(() => {
   const mins = Math.floor(Math.max(0, countdownRemaining.value) / 60)
@@ -293,8 +295,9 @@ const countdownFormatted = computed(() => {
 const riskLevelColor = computed(() => getRiskLevelColor(deviceRiskLevel.value))
 
 const riskLevelLabel = computed(() => {
-  if (!deviceRiskLevel.value) return ''
-  return RISK_LEVEL_LABELS[deviceRiskLevel.value] || '未知风险'
+  const level = deviceRiskLevel.value
+  if (!level) return '高风险'
+  return RISK_LEVEL_LABELS[level] || '未知风险'
 })
 
 const currentRiskAdvice = computed(() => getHighRiskAdvice(deviceRiskLevel.value))
@@ -347,89 +350,66 @@ function stopCountdown() {
   }
 }
 
+function refreshManagerState() {
+  status.value = authManager.getStatus()
+}
+
 function simulateScan(isRisk = false) {
-  if (isExpired.value || isSubmitting.value) return
+  if (isExpired.value || isSubmitting.value || isOperationDone.value) return
 
   const deviceInfo = isRisk ? { ...MOCK_RISK_DEVICE_INFO } : { ...MOCK_DEVICE_INFO }
-  deviceRiskLevel.value = isRisk ? RISK_LEVELS.HIGH : null
 
-  if (isRisk) {
-    const result = markAsRisk(status.value, { riskLevel: RISK_LEVELS.HIGH, riskReasons: deviceInfo.riskReasons })
-    if (result.success) {
-      status.value = result.newStatus
-      currentDeviceInfo.value = deviceInfo
-    }
-  } else {
-    const result = markAsScanned(status.value, deviceInfo)
-    if (result.success) {
-      status.value = result.newStatus
-      currentDeviceInfo.value = deviceInfo
-    }
+  const result = authManager.markAsScanned(deviceInfo, isRisk)
+  if (result.success) {
+    refreshManagerState()
   }
 }
 
-async function handleConfirm() {
-  if (isSubmitting.value || hasConfirmed.value || isExpired.value) return
+function handleConfirm() {
+  if (isSubmitting.value || !canOperate.value) return
 
   isSubmitting.value = true
-  await new Promise(resolve => setTimeout(resolve, 600))
 
-  const result = confirmAuthorization(status.value, { hasConfirmed: hasConfirmed.value })
+  const result = authManager.confirm()
 
   if (result.success) {
-    status.value = result.newStatus
-    authorizedAt.value = result.confirmedAt
-    hasConfirmed.value = true
+    refreshManagerState()
     stopCountdown()
   }
   isSubmitting.value = false
 }
 
-async function handleReject() {
-  if (isSubmitting.value || hasConfirmed.value || isExpired.value) return
+function handleReject() {
+  if (isSubmitting.value || !canOperate.value) return
 
   isSubmitting.value = true
-  await new Promise(resolve => setTimeout(resolve, 400))
 
-  const result = rejectAuthorization(status.value, {
-    hasConfirmed: hasConfirmed.value,
-    rejectReason: '用户拒绝授权该设备登录'
-  })
+  const result = authManager.reject('用户拒绝授权该设备登录')
 
   if (result.success) {
-    status.value = result.newStatus
-    rejectedAt.value = result.rejectedAt
-    rejectReason.value = result.rejectReason
-    hasConfirmed.value = true
+    refreshManagerState()
     stopCountdown()
   }
   isSubmitting.value = false
 }
 
 function handleTimeout() {
-  const result = markAsTimeout(status.value)
+  const result = authManager.markAsTimeout()
   if (result.success) {
-    status.value = result.newStatus
+    refreshManagerState()
   }
 }
 
 function handleRefresh() {
-  const result = refreshAuthorization(status.value)
+  const result = authManager.refresh()
   if (result.success) {
-    status.value = result.newStatus
-    requestId.value = result.newRequestId
-    currentDeviceInfo.value = {}
-    deviceRiskLevel.value = null
-    hasConfirmed.value = false
-    rejectReason.value = ''
-    authorizedAt.value = ''
-    rejectedAt.value = ''
+    refreshManagerState()
     resetCountdown()
   }
 }
 
 watch(status, (newStatus) => {
-  if (isTerminalStatus(newStatus) && newStatus !== TIMEOUT) {
+  if (isTerminalStatus(newStatus)) {
     stopCountdown()
   }
 })

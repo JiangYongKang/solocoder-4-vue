@@ -1,4 +1,4 @@
-import { DATA_IMPACT_CATEGORIES, DATA_CLEAR_SCOPE } from './constants.js'
+import { DATA_CLEAR_SCOPE, DATA_CLEAR_SCOPE_LABELS, DATA_IMPACT_CATEGORIES } from './constants.js'
 
 export const DATA_IMPACTS = [
   {
@@ -132,12 +132,7 @@ export function getHighRiskCategories() {
 }
 
 export function getScopeLabel(scope) {
-  const scopeLabels = {
-    [DATA_CLEAR_SCOPE.IMMEDIATE]: '立即清除',
-    [DATA_CLEAR_SCOPE.COOLING_PERIOD_END]: '冷静期结束清除',
-    [DATA_CLEAR_SCOPE.RETAINED]: '依法保留'
-  }
-  return scopeLabels[scope] || ''
+  return DATA_CLEAR_SCOPE_LABELS[scope] || ''
 }
 
 export function countDataItems() {

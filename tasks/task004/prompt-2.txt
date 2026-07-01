@@ -1,0 +1,6 @@
+你实现的新用户引导流程页面还存在一些问题，需要进行修复：
+1. Onboarding.vue 中 isStepCompleted 函数仅通过步骤在 visibleSteps 数组中的位置索引判断完成状态，当用户在确认页点击修改跳回偏好设置步骤时，原本已通过的示例数据步骤的勾号标记会被清除。需要维护独立的步骤访问记录来准确反映用户的实际操作历史。
+2. Onboarding.vue 中 confirmSkipAction 方法在执行跳过时先调用 skipConfirmation.js 的 confirmSkip 做校验，再调用 stepFlow.js 的 skipOnboarding 做状态变更，两步操作之间存在状态不一致的风险。需要将跳过操作的验证和状态变更合并为一个原子操作。
+3. Onboarding.vue 中 handleEnterSystem 方法仅有 console.log 一行空实现，缺少向外部系统发送引导完成通知或导航跳转的能力，导致引导流程无法形成完整闭环。需要补充该方法的实际集成逻辑。
+4. Onboarding.vue 中 goEdit 函数从确认页跳回配置步骤时仅修改了 currentStep 值，没有保存返回上下文，导致用户从配置页返回确认页的路径被打断。需要保留从确认页跳出的返回路径。
+5. 修复后需要确保 pnpm run test 全部通过。

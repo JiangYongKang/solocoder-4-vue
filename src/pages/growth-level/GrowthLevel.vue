@@ -6,12 +6,24 @@
         <p class="subtitle">完成任务获取经验，解锁更多专属权益</p>
       </header>
 
-      <div v-if="expiringBenefits.length > 0" class="expiration-banner">
+      <div v-if="expiringBenefits.length > 0 || expiringTasks.length > 0" class="expiration-banner">
         <span class="expiration-icon">⏰</span>
-        <span class="expiration-text">
-          有 {{ expiringBenefits.length }} 个权益即将过期，
-          <button class="link-btn" @click="scrollToBenefits">快去领取</button>
-        </span>
+        <div class="expiration-content">
+          <div v-if="expiringTasks.length > 0" class="expiration-row">
+            <span class="expiration-label task">任务提醒：</span>
+            <span class="expiration-text">
+              有 {{ expiringTasks.length }} 个任务即将过期（共 {{ expiringTasksTotalExp }} 经验），
+              <button class="link-btn" @click="scrollToTasks">快去完成</button>
+            </span>
+          </div>
+          <div v-if="expiringBenefits.length > 0" class="expiration-row">
+            <span class="expiration-label benefit">权益提醒：</span>
+            <span class="expiration-text">
+              有 {{ expiringBenefits.length }} 个权益即将过期，
+              <button class="link-btn" @click="scrollToBenefits">快去领取</button>
+            </span>
+          </div>
+        </div>
       </div>
 
       <div class="content-grid">
@@ -69,7 +81,7 @@
             </div>
           </div>
 
-          <div class="section-card">
+          <div id="tasks-section" class="section-card">
             <div class="section-header">
               <h2>任务进度</h2>
               <div class="task-summary">
@@ -129,9 +141,10 @@
                   <button
                     class="task-action-btn"
                     :class="getTaskActionClass(task)"
-                    :disabled="isTaskActionDisabled(task)"
+                    :disabled="isTaskActionDisabled(task) || claimingTaskIds.has(task.id)"
                     @click="handleTaskAction(task)"
                   >
+                    <span v-if="claimingTaskIds.has(task.id)" class="btn-spinner"></span>
                     {{ getTaskActionLabel(task) }}
                   </button>
                 </div>
@@ -281,9 +294,7 @@
                 <div class="stat-label">日均获得经验</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">
-                  {{ upgradeEstimate.daysToUpgrade.canEstimate ? upgradeEstimate.daysToUpgrade.days : '-' }}
-                </div>
+                <div class="stat-value">{{ displayDaysToUpgrade }}</div>
                 <div class="stat-label">预计升级天数</div>
               </div>
               <div class="stat-item">
@@ -359,8 +370,8 @@ import {
 import {
   getBenefitStatus as getBenefitStatusFn,
   canClaimBenefit,
-  getBenefitStatusColor,
-  getBenefitStatusIcon,
+  getBenefitStatusColor as getBenefitStatusColorByStatus,
+  getBenefitStatusIcon as getBenefitStatusIconByStatus,
   sortBenefitsByPriority,
   checkExpiringBenefits,
   claimBenefit,
@@ -371,20 +382,37 @@ import {
 const currentExp = ref(750)
 const currentDailyExp = ref(150)
 const lastClaimTimes = ref({})
+const claimingTaskIds = ref(new Set())
 
 const expRecords = ref([
   { id: 1, source: 'daily_login', exp: 10, description: '每日登录', timestamp: Date.now() - 1000 * 60 * 60 * 2 },
   { id: 2, source: 'task_complete', exp: 50, description: '完成新手任务-完善资料', timestamp: Date.now() - 1000 * 60 * 60 * 5 },
   { id: 3, source: 'task_complete', exp: 30, description: '完成每日任务-浏览资讯', timestamp: Date.now() - 1000 * 60 * 60 * 8 },
-  { id: 4, source: 'content_contribute', exp: 100, description: '发布优质内容', timestamp: Date.now() - 1000 * 60 * 60 * 24 },
+  { id: 4, source: 'content_contribute', exp: 100, description: '发布优质内容《Vue3进阶指南》', timestamp: Date.now() - 1000 * 60 * 60 * 24 },
   { id: 5, source: 'community_interact', exp: 20, description: '评论获得10个赞', timestamp: Date.now() - 1000 * 60 * 60 * 36 },
   { id: 6, source: 'task_complete', exp: 80, description: '完成每周任务-连续登录7天', timestamp: Date.now() - 1000 * 60 * 60 * 48 },
   { id: 7, source: 'achievement', exp: 200, description: '达成成就-首次发布内容', timestamp: Date.now() - 1000 * 60 * 60 * 72 },
-  { id: 8, source: 'purchase', exp: 150, description: '消费奖励', timestamp: Date.now() - 1000 * 60 * 60 * 96 },
-  { id: 9, source: 'penalty', exp: -50, description: '违规扣除', timestamp: Date.now() - 1000 * 60 * 60 * 120 },
+  { id: 8, source: 'purchase', exp: 150, description: '消费订单 #ORD20240701001 满300元', timestamp: Date.now() - 1000 * 60 * 60 * 96 },
+  {
+    id: 9,
+    source: 'penalty',
+    exp: -50,
+    description: '违反社区规范第3.2条-发布垃圾广告内容，违规ID：VIOL-20240701023',
+    violationType: '垃圾广告',
+    ruleReference: '社区规范第3.2条',
+    timestamp: Date.now() - 1000 * 60 * 60 * 120
+  },
   { id: 10, source: 'daily_login', exp: 10, description: '每日登录', timestamp: Date.now() - 1000 * 60 * 60 * 144 },
   { id: 11, source: 'task_complete', exp: 30, description: '完成每日任务-分享内容', timestamp: Date.now() - 1000 * 60 * 60 * 148 },
-  { id: 12, source: 'correction', exp: 20, description: '系统调整-经验补回', timestamp: Date.now() - 1000 * 60 * 60 * 168 }
+  {
+    id: 12,
+    source: 'correction',
+    exp: 20,
+    description: '经验计算错误修正-订单奖励漏发，更正单号：CORR-20240701008',
+    correctionReason: '订单奖励系统漏发补回',
+    ticketId: 'CORR-20240701008',
+    timestamp: Date.now() - 1000 * 60 * 60 * 168
+  }
 ])
 
 const tasks = ref([
@@ -606,6 +634,13 @@ const upgradeEstimateText = computed(() => formatUpgradeEstimate(upgradeEstimate
 const upgradeTips = computed(() =>
   getExpEfficiencyTip(currentExp.value, upgradeEstimate.value.dailyExpRate, DAILY_EXP_CAP)
 )
+const displayDaysToUpgrade = computed(() => {
+  const { daysToUpgrade, isMaxLevel } = upgradeEstimate.value
+  if (isMaxLevel) return '已满级'
+  if (!daysToUpgrade.canEstimate) return '-'
+  if (!isFinite(daysToUpgrade.days)) return '-'
+  return daysToUpgrade.days
+})
 
 const taskStats = computed(() => calculateTaskRewards(tasks.value, true))
 const sortedTasks = computed(() => sortTasksByPriority(tasks.value))
@@ -630,6 +665,19 @@ const filteredTasks = computed(() => {
 const expiringBenefits = computed(() =>
   checkExpiringBenefits(benefits.value, levelInfo.value.level, 24)
 )
+const expiringTasks = computed(() => {
+  const now = new Date()
+  const threshold = now.getTime() + 24 * 60 * 60 * 1000
+  return tasks.value.filter(task => {
+    if (!task.expiresAt) return false
+    if (task.claimedAt) return false
+    const expiresAt = new Date(task.expiresAt).getTime()
+    return expiresAt > now.getTime() && expiresAt <= threshold
+  }).sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt))
+})
+const expiringTasksTotalExp = computed(() => {
+  return expiringTasks.value.reduce((sum, task) => sum + (task.rewardExp || 0), 0)
+})
 const benefitStats = computed(() =>
   calculateBenefitStats(benefits.value, levelInfo.value.level)
 )
@@ -710,7 +758,11 @@ function getTaskExpirationText(task) {
   return `有效期：${formatTimeRemaining(timeRemaining)}`
 }
 
-function handleTaskAction(task) {
+async function handleTaskAction(task) {
+  if (claimingTaskIds.value.has(task.id)) {
+    return
+  }
+
   const status = getTaskStatus(task)
   const { isExpired } = checkTaskExpiration(task)
 
@@ -719,17 +771,41 @@ function handleTaskAction(task) {
     return
   }
 
-  if (status === TASK_STATUS.COMPLETED) {
-    const result = addExp(currentExp.value, task.rewardExp, DAILY_EXP_CAP, currentDailyExp.value)
+  if (status !== TASK_STATUS.COMPLETED) {
+    showToastMessage(`任务进行中，继续加油！`, 'info')
+    return
+  }
+
+  if (task.claimedAt) {
+    showToastMessage('该任务奖励已领取', 'info')
+    return
+  }
+
+  try {
+    claimingTaskIds.value.add(task.id)
+
+    await new Promise(resolve => setTimeout(resolve, 300))
+
+    const freshTask = tasks.value.find(t => t.id === task.id)
+    if (!freshTask) {
+      showToastMessage('任务不存在', 'error')
+      return
+    }
+    if (freshTask.claimedAt) {
+      showToastMessage('该任务奖励已领取', 'info')
+      return
+    }
+
+    const result = addExp(currentExp.value, freshTask.rewardExp, DAILY_EXP_CAP, currentDailyExp.value)
     currentExp.value = result.newExp
     currentDailyExp.value += result.addedExp
-    task.claimedAt = new Date().toISOString()
+    freshTask.claimedAt = new Date().toISOString()
 
     expRecords.value.unshift({
       id: Date.now(),
       source: 'task_complete',
       exp: result.addedExp,
-      description: `完成任务-${task.title}`,
+      description: `完成任务-${freshTask.title}`,
       timestamp: Date.now()
     })
 
@@ -740,8 +816,8 @@ function handleTaskAction(task) {
     } else {
       showToastMessage(`领取成功！获得 ${result.addedExp} 经验`, 'success')
     }
-  } else {
-    showToastMessage(`任务进行中，继续加油！`, 'info')
+  } finally {
+    claimingTaskIds.value.delete(task.id)
   }
 }
 
@@ -758,11 +834,11 @@ function getBenefitTypeIcon(type) {
 }
 
 function getBenefitStatusColor(benefit) {
-  return getBenefitStatusColor(getBenefitStatus(benefit))
+  return getBenefitStatusColorByStatus(getBenefitStatus(benefit))
 }
 
 function getBenefitStatusIcon(benefit) {
-  return getBenefitStatusIcon(getBenefitStatus(benefit))
+  return getBenefitStatusIconByStatus(getBenefitStatus(benefit))
 }
 
 function isBenefitExpired(benefit) {
@@ -901,12 +977,26 @@ function scrollToBenefits() {
   }
 }
 
-onMounted(() => {
-  if (expiringBenefits.value.length > 0) {
-    setTimeout(() => {
-      showToastMessage(`有 ${expiringBenefits.value.length} 个权益即将过期，请注意领取！`, 'info')
-    }, 1000)
+function scrollToTasks() {
+  const element = document.getElementById('tasks-section')
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+}
+
+onMounted(() => {
+  setTimeout(() => {
+    const messages = []
+    if (expiringTasks.value.length > 0) {
+      messages.push(`${expiringTasks.value.length} 个任务即将过期（共 ${expiringTasksTotalExp.value} 经验）`)
+    }
+    if (expiringBenefits.value.length > 0) {
+      messages.push(`${expiringBenefits.value.length} 个权益即将过期`)
+    }
+    if (messages.length > 0) {
+      showToastMessage(`提醒：${messages.join('，')}，请注意！`, 'info')
+    }
+  }, 1000)
 })
 </script>
 
@@ -948,12 +1038,42 @@ onMounted(() => {
   padding: 12px 16px;
   margin-bottom: 24px;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .expiration-icon {
   font-size: 20px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.expiration-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.expiration-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.expiration-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.expiration-label.task {
+  color: #b45309;
+}
+
+.expiration-label.benefit {
+  color: #92400e;
 }
 
 .expiration-text {
@@ -1406,6 +1526,22 @@ onMounted(() => {
 .task-action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .exp-summary {

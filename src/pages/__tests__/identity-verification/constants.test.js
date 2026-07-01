@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  VERIFICATION_STATUS,
-  CERTIFICATE_TYPES,
-  STATUS_LABELS,
-  CERTIFICATE_TYPE_LABELS
+    CERTIFICATE_TYPE_LABELS,
+    CERTIFICATE_TYPES,
+    STATUS_LABELS,
+    VERIFICATION_STATUS
 } from '../../identity-verification/constants.js'
 
 describe('constants', () => {

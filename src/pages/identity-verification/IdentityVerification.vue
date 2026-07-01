@@ -212,6 +212,8 @@ import { simulateOCRRecognition, mergeOCRData } from './ocrService.js'
 import {
   submitForReview,
   resubmitForReview,
+  approveVerification,
+  rejectVerification,
   isEditable,
   isViewOnly,
   canSubmit as canSubmitStatus,
@@ -322,7 +324,7 @@ async function processFile(file) {
   isOCRProcessing.value = true
 
   try {
-    const result = await simulateOCRRecognition(selectedType.value, file, 0)
+    const result = await simulateOCRRecognition(selectedType.value, file, 0.15)
     if (result.success) {
       formData.value = mergeOCRData(formData.value, result.data)
       ocrSuccess.value = true
@@ -390,15 +392,22 @@ async function handleSubmit() {
       setTimeout(() => {
         const mockApproved = Math.random() > 0.3
         if (mockApproved) {
-          status.value = APPROVED
+          const approveResult = approveVerification(status.value)
+          if (approveResult.success) {
+            status.value = approveResult.newStatus
+          }
         } else {
-          status.value = REJECTED
           const reasons = [
             '证件照片模糊，请重新上传清晰的照片',
             '证件信息填写有误，请核对后重新提交',
             '证件类型与上传照片不匹配'
           ]
-          rejectReason.value = reasons[Math.floor(Math.random() * reasons.length)]
+          const randomReason = reasons[Math.floor(Math.random() * reasons.length)]
+          const rejectResult = rejectVerification(status.value, randomReason)
+          if (rejectResult.success) {
+            status.value = rejectResult.newStatus
+            rejectReason.value = rejectResult.rejectReason
+          }
         }
       }, 3000)
     }

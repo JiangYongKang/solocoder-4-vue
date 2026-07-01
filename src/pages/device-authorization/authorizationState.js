@@ -15,15 +15,15 @@ const TIMEOUT = DEVICE_AUTH_STATUS.TIMEOUT
 const RISK = DEVICE_AUTH_STATUS.RISK
 
 const VALID_TRANSITIONS = {
-  [PENDING_SCAN]: [SCANNED_PENDING, TIMEOUT, RISK],
+  [PENDING_SCAN]: [PENDING_SCAN, SCANNED_PENDING, TIMEOUT, RISK],
   [SCANNED_PENDING]: [AUTHORIZED, REJECTED, TIMEOUT, RISK],
-  [RISK]: [AUTHORIZED, REJECTED, TIMEOUT],
+  [RISK]: [RISK, AUTHORIZED, REJECTED, TIMEOUT],
   [AUTHORIZED]: [],
   [REJECTED]: [],
   [TIMEOUT]: [PENDING_SCAN]
 }
 
-const TERMINAL_STATUSES = [AUTHORIZED, REJECTED, TIMEOUT]
+const FINAL_STATUSES = [AUTHORIZED, REJECTED]
 
 export function canTransition(currentStatus, targetStatus) {
   const validTargets = VALID_TRANSITIONS[currentStatus]
@@ -53,7 +53,7 @@ export function transitionStatus(currentStatus, targetStatus, payload = {}) {
 }
 
 export function isTerminalStatus(status) {
-  return TERMINAL_STATUSES.includes(status)
+  return FINAL_STATUSES.includes(status)
 }
 
 export function canConfirm(status) {
@@ -70,13 +70,7 @@ export function canRefresh(status) {
 
 export function markAsScanned(currentStatus, deviceInfo = {}) {
   if (currentStatus === RISK) {
-    return {
-      success: true,
-      newStatus: RISK,
-      error: null,
-      transitionedAt: new Date().toISOString(),
-      deviceInfo
-    }
+    return transitionStatus(currentStatus, RISK, { deviceInfo })
   }
   return transitionStatus(currentStatus, SCANNED_PENDING, { deviceInfo })
 }
@@ -140,16 +134,6 @@ export function markAsRisk(currentStatus, riskData = {}) {
 }
 
 export function refreshAuthorization(currentStatus) {
-  if (currentStatus === PENDING_SCAN) {
-    return {
-      success: true,
-      newStatus: PENDING_SCAN,
-      error: null,
-      transitionedAt: new Date().toISOString(),
-      refreshedAt: new Date().toISOString(),
-      newRequestId: generateRequestId()
-    }
-  }
   const result = transitionStatus(currentStatus, PENDING_SCAN)
   if (result.success) {
     return {
@@ -163,6 +147,216 @@ export function refreshAuthorization(currentStatus) {
 
 export function generateRequestId() {
   return 'AUTH_' + Date.now() + '_' + Math.random().toString(36).substring(2, 10).toUpperCase()
+}
+
+export function createAuthorizationManager(initialStatus = PENDING_SCAN) {
+  let status = initialStatus
+  let hasConfirmed = false
+  let hasRejected = false
+  let deviceInfo = {}
+  let riskData = null
+  let confirmedAt = null
+  let rejectedAt = null
+  let rejectReason = ''
+  let markedAsRiskAt = null
+  let lastRefreshedAt = null
+  let currentRequestId = generateRequestId()
+
+  return {
+    getStatus() {
+      return status
+    },
+
+    getDeviceInfo() {
+      return { ...deviceInfo }
+    },
+
+    getRiskData() {
+      return riskData ? { ...riskData } : null
+    },
+
+    getRequestId() {
+      return currentRequestId
+    },
+
+    isConfirmed() {
+      return hasConfirmed
+    },
+
+    isRejected() {
+      return hasRejected
+    },
+
+    isOperationDone() {
+      return hasConfirmed || hasRejected
+    },
+
+    getTimestamps() {
+      return {
+        confirmedAt,
+        rejectedAt,
+        markedAsRiskAt,
+        lastRefreshedAt
+      }
+    },
+
+    getRejectReason() {
+      return rejectReason
+    },
+
+    markAsScanned(info = {}, isRisk = false) {
+      if (this.isOperationDone()) {
+        return {
+          success: false,
+          newStatus: status,
+          error: '操作已完成，无法再标记为已扫描'
+        }
+      }
+
+      deviceInfo = info
+
+      if (isRisk || status === RISK) {
+        const result = transitionStatus(status, RISK, { deviceInfo })
+        if (result.success) {
+          status = result.newStatus
+          riskData = riskData || { riskLevel: RISK_LEVELS.HIGH }
+          markedAsRiskAt = result.transitionedAt
+        }
+        return result
+      }
+
+      const result = transitionStatus(status, SCANNED_PENDING, { deviceInfo })
+      if (result.success) {
+        status = result.newStatus
+      }
+      return result
+    },
+
+    markAsRisk(riskInfo = {}) {
+      if (this.isOperationDone()) {
+        return {
+          success: false,
+          newStatus: status,
+          error: '操作已完成，无法标记为风险'
+        }
+      }
+
+      const result = transitionStatus(status, RISK, { riskData: riskInfo })
+      if (result.success) {
+        status = result.newStatus
+        riskData = { riskLevel: RISK_LEVELS.HIGH, ...riskInfo }
+        markedAsRiskAt = result.transitionedAt
+      }
+      return result
+    },
+
+    confirm() {
+      if (hasConfirmed) {
+        return {
+          success: false,
+          newStatus: status,
+          error: '请勿重复提交，操作已执行'
+        }
+      }
+
+      if (hasRejected) {
+        return {
+          success: false,
+          newStatus: status,
+          error: '已拒绝授权，无法再确认'
+        }
+      }
+
+      const result = transitionStatus(status, AUTHORIZED)
+      if (result.success) {
+        status = result.newStatus
+        hasConfirmed = true
+        confirmedAt = result.transitionedAt
+      }
+      return result
+    },
+
+    reject(reason = '用户拒绝授权') {
+      if (hasRejected) {
+        return {
+          success: false,
+          newStatus: status,
+          error: '请勿重复提交，操作已执行'
+        }
+      }
+
+      if (hasConfirmed) {
+        return {
+          success: false,
+          newStatus: status,
+          error: '已确认授权，无法再拒绝'
+        }
+      }
+
+      const result = transitionStatus(status, REJECTED)
+      if (result.success) {
+        status = result.newStatus
+        hasRejected = true
+        rejectedAt = result.transitionedAt
+        rejectReason = reason
+      }
+      return result
+    },
+
+    markAsTimeout() {
+      if (this.isOperationDone()) {
+        return {
+          success: false,
+          newStatus: status,
+          error: '操作已完成，无需标记超时'
+        }
+      }
+      const result = transitionStatus(status, TIMEOUT)
+      if (result.success) {
+        status = result.newStatus
+      }
+      return result
+    },
+
+    refresh() {
+      const result = transitionStatus(status, PENDING_SCAN)
+      if (result.success) {
+        status = result.newStatus
+        hasConfirmed = false
+        hasRejected = false
+        deviceInfo = {}
+        riskData = null
+        confirmedAt = null
+        rejectedAt = null
+        rejectReason = ''
+        markedAsRiskAt = null
+        lastRefreshedAt = result.transitionedAt
+        currentRequestId = generateRequestId()
+      }
+      return result
+    },
+
+    getRiskLevel() {
+      if (status !== RISK) return null
+      if (riskData && riskData.riskLevel) return riskData.riskLevel
+      return RISK_LEVELS.HIGH
+    },
+
+    toJSON() {
+      return {
+        status,
+        hasConfirmed,
+        hasRejected,
+        isOperationDone: this.isOperationDone(),
+        deviceInfo: this.getDeviceInfo(),
+        riskData: this.getRiskData(),
+        riskLevel: this.getRiskLevel(),
+        requestId: currentRequestId,
+        rejectReason,
+        timestamps: this.getTimestamps()
+      }
+    }
+  }
 }
 
 export function createCountdownManager(initialSeconds = DEFAULT_QR_TIMEOUT, onTimeout = null) {
@@ -243,6 +437,7 @@ export function shouldShowRiskWarning(status) {
 }
 
 export function getHighRiskAdvice(riskLevel) {
+  const level = riskLevel || RISK_LEVELS.HIGH
   const advices = {
     [RISK_LEVELS.LOW]: [
       '请确认是否是您本人或您信任的设备发起的登录请求'
@@ -258,7 +453,7 @@ export function getHighRiskAdvice(riskLevel) {
       '请勿在任何情况下向他人透露验证码'
     ]
   }
-  return advices[riskLevel] || advices[RISK_LEVELS.MEDIUM]
+  return advices[level] || advices[RISK_LEVELS.MEDIUM]
 }
 
 export function getStatusDescription(status) {

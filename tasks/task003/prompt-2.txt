@@ -1,0 +1,7 @@
+你实现的多租户空间切换页还存在一些问题，需要进行修复：
+1. TenantSwitch.vue 中 handleInvite 方法仅显示"邀请功能开发中，敬请期待"的成功通知，实际并未实现邀请功能，用成功状态包裹未完成功能会误导用户。需要提供一个可展示邀请进展的入口。
+2. TenantSwitch.vue 中 generateMockSpaces 方法将 8 条模拟数据生成逻辑直接写在生产组件内部，每次 onMounted 都会无条件生成硬编码假数据。需要将模拟数据与组件解耦，使组件能通过 props 或外部数据源接收空间列表。
+3. TenantSwitch.vue 中导入了 utils.js 的 isSpaceActive 函数，但在整个模板和逻辑中从未使用过，属于冗余导入，需要移除。
+4. TenantSwitch.vue 中 onMounted 钩子获取默认空间时使用了 getDefaultSpace(mockSpaces) 而非 getDefaultSpace(spaces.value)，虽然当前数据相同，但绕过响应式变量的写法在后续替换数据源时容易引入引用不一致的 bug。
+5. TenantSwitch.vue 中 handleSetDefault 方法用 Math.random() 模拟了 10% 的失败概率，但这个异步模拟逻辑直接耦合在方法内部，catch 分支在真实场景下永远不会触发。需要将模拟失败逻辑从业务流程中分离。
+6. 修复后需要确保 pnpm run test 全部通过。

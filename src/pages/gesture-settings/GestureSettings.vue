@@ -31,7 +31,7 @@
         {{ message }}
       </div>
 
-      <div v-if="errorCount > 0 && !isLocked && currentStatus !== SET" class="error-hint">
+      <div v-if="errorCount > 0 && !isLocked && currentStatus !== SET && currentStep !== RESET" class="error-hint">
         剩余尝试次数：{{ remainingAttempts }}
       </div>
 
@@ -47,53 +47,53 @@
       </div>
 
       <div v-else-if="showGestureArea" class="gesture-section">
-        <div class="gesture-hint" :class="{ 'error': hasError, 'success': hasSuccess }">
+        <div class="gesture-hint" :class="{ 'error': mainDrawer.hasError.value, 'success': mainDrawer.hasSuccess.value }">
           {{ stepLabel }}
         </div>
 
         <div
           ref="gesturePad"
           class="gesture-pad"
-          @mousedown="startDrawing"
-          @mousemove="draw"
-          @mouseup="endDrawing"
-          @mouseleave="handleMouseLeave"
-          @touchstart.prevent="startDrawing"
-          @touchmove.prevent="draw"
-          @touchend.prevent="endDrawing"
+          @mousedown="handleMainStart"
+          @mousemove="handleMainDraw"
+          @mouseup="handleMainEnd"
+          @mouseleave="handleMainLeave"
+          @touchstart.prevent="handleMainStart"
+          @touchmove.prevent="handleMainDraw"
+          @touchend.prevent="handleMainEnd"
         >
           <svg class="gesture-canvas" :width="canvasSize" :height="canvasSize">
             <line
-              v-for="(line, index) in lines"
+              v-for="(line, index) in mainDrawer.lines.value"
               :key="'line-' + index"
               :x1="line.x1"
               :y1="line.y1"
               :x2="line.x2"
               :y2="line.y2"
-              :stroke="lineColor"
+              :stroke="mainLineColor"
               stroke-width="4"
               stroke-linecap="round"
             />
             <line
-              v-if="currentLine"
-              :x1="currentLine.x1"
-              :y1="currentLine.y1"
-              :x2="currentLine.x2"
-              :y2="currentLine.y2"
-              :stroke="lineColor"
+              v-if="mainDrawer.currentLine.value"
+              :x1="mainDrawer.currentLine.value.x1"
+              :y1="mainDrawer.currentLine.value.y1"
+              :x2="mainDrawer.currentLine.value.x2"
+              :y2="mainDrawer.currentLine.value.y2"
+              :stroke="mainLineColor"
               stroke-width="4"
               stroke-linecap="round"
             />
           </svg>
 
           <div
-            v-for="(point, index) in gesturePoints"
+            v-for="(point, index) in mainDrawer.gesturePoints.value"
             :key="index"
             class="gesture-point"
             :class="{
-              'selected': selectedPoints.includes(index),
-              'error': hasError && selectedPoints.includes(index),
-              'success': hasSuccess && selectedPoints.includes(index)
+              'selected': mainDrawer.selectedPoints.value.includes(index),
+              'error': mainDrawer.hasError.value && mainDrawer.selectedPoints.value.includes(index),
+              'success': mainDrawer.hasSuccess.value && mainDrawer.selectedPoints.value.includes(index)
             }"
             :style="{ left: point.x + 'px', top: point.y + 'px' }"
           >
@@ -105,14 +105,14 @@
           <button v-if="canCancel" class="btn btn-secondary" @click="handleCancel">
             取消
           </button>
-          <button v-if="canReset" class="btn btn-secondary" @click="showResetConfirm = true">
+          <button v-if="canReset" class="btn btn-secondary" @click="handleOpenReset">
             重置手势
           </button>
         </div>
       </div>
 
-      <div v-if="isEnabled && currentStatus === SET" class="info-section">
-        <button class="btn btn-outline btn-full" @click="showResetConfirm = true">
+      <div v-if="isEnabled && currentStatus === SET && currentStep === IDLE" class="info-section">
+        <button class="btn btn-outline btn-full" @click="handleOpenReset">
           重置手势密码
         </button>
       </div>
@@ -130,7 +130,7 @@
         </div>
       </div>
 
-      <div v-if="showResetConfirm" class="modal-overlay" @click.self="showResetConfirm = false">
+      <div v-if="showResetConfirm" class="modal-overlay" @click.self="closeResetModal">
         <div class="modal-content">
           <div class="modal-title">重置手势密码</div>
           <div class="modal-desc">请验证原手势密码以继续重置</div>
@@ -138,32 +138,32 @@
             <div
               ref="resetPad"
               class="gesture-pad small"
-              @mousedown="startResetDrawing"
-              @mousemove="drawReset"
-              @mouseup="endResetDrawing"
-              @mouseleave="handleResetMouseLeave"
-              @touchstart.prevent="startResetDrawing"
-              @touchmove.prevent="drawReset"
-              @touchend.prevent="endResetDrawing"
+              @mousedown="handleResetStart"
+              @mousemove="handleResetDraw"
+              @mouseup="handleResetEnd"
+              @mouseleave="handleResetLeave"
+              @touchstart.prevent="handleResetStart"
+              @touchmove.prevent="handleResetDraw"
+              @touchend.prevent="handleResetEnd"
             >
               <svg class="gesture-canvas" :width="smallCanvasSize" :height="smallCanvasSize">
                 <line
-                  v-for="(line, index) in resetLines"
+                  v-for="(line, index) in resetDrawer.lines.value"
                   :key="'rline-' + index"
-                  :x1="line.x1 / 1.6"
-                  :y1="line.y1 / 1.6"
-                  :x2="line.x2 / 1.6"
-                  :y2="line.y2 / 1.6"
+                  :x1="line.x1"
+                  :y1="line.y1"
+                  :x2="line.x2"
+                  :y2="line.y2"
                   :stroke="resetLineColor"
                   stroke-width="3"
                   stroke-linecap="round"
                 />
                 <line
-                  v-if="resetCurrentLine"
-                  :x1="resetCurrentLine.x1 / 1.6"
-                  :y1="resetCurrentLine.y1 / 1.6"
-                  :x2="resetCurrentLine.x2 / 1.6"
-                  :y2="resetCurrentLine.y2 / 1.6"
+                  v-if="resetDrawer.currentLine.value"
+                  :x1="resetDrawer.currentLine.value.x1"
+                  :y1="resetDrawer.currentLine.value.y1"
+                  :x2="resetDrawer.currentLine.value.x2"
+                  :y2="resetDrawer.currentLine.value.y2"
                   :stroke="resetLineColor"
                   stroke-width="3"
                   stroke-linecap="round"
@@ -171,12 +171,12 @@
               </svg>
 
               <div
-                v-for="(point, index) in smallGesturePoints"
+                v-for="(point, index) in resetDrawer.gesturePoints.value"
                 :key="index"
                 class="gesture-point small"
                 :class="{
-                  'selected': resetSelectedPoints.includes(index),
-                  'error': resetHasError && resetSelectedPoints.includes(index)
+                  'selected': resetDrawer.selectedPoints.value.includes(index),
+                  'error': resetDrawer.hasError.value && resetDrawer.selectedPoints.value.includes(index)
                 }"
                 :style="{ left: point.x + 'px', top: point.y + 'px' }"
               >
@@ -184,8 +184,8 @@
               </div>
             </div>
           </div>
-          <div v-if="resetMessage" class="reset-message" :class="{ error: resetHasError }">
-            {{ resetMessage }}
+          <div v-if="resetDrawer.message.value" class="reset-message" :class="{ error: resetDrawer.hasError.value }">
+            {{ resetDrawer.message.value }}
           </div>
           <div class="modal-actions">
             <button class="btn btn-secondary" @click="closeResetModal">取消</button>
@@ -201,10 +201,8 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import {
   GESTURE_STATUS,
   GESTURE_STEP,
-  MIN_POINTS,
   MAX_ERRORS,
   LOCK_DURATION,
-  GESTURE_STATUS_LABELS,
   SECURITY_TIPS
 } from './constants.js'
 import {
@@ -219,10 +217,12 @@ import {
   confirmGesture,
   verifyGesture,
   unlockAfterLock,
+  enterResetStep,
   startReset,
   cancelReset,
   toggleGesture
 } from './gestureState.js'
+import { useGestureDrawer } from './useGestureDrawer.js'
 
 const OFF = GESTURE_STATUS.OFF
 const DRAWING = GESTURE_STATUS.DRAWING
@@ -234,6 +234,7 @@ const LOCKED = GESTURE_STATUS.LOCKED
 const FIRST_DRAW = GESTURE_STEP.FIRST_DRAW
 const SECOND_DRAW = GESTURE_STEP.SECOND_DRAW
 const IDLE = GESTURE_STEP.IDLE
+const RESET = GESTURE_STEP.RESET
 
 const state = ref(getInitialState())
 const isEnabled = computed(() => state.value.isEnabled)
@@ -246,34 +247,31 @@ const isLocked = computed(() => state.value.isLocked)
 const lockStartTime = computed(() => state.value.lockStartTime)
 
 const canvasSize = ref(300)
-const smallCanvasSize = computed(() => Math.floor(canvasSize.value / 1.6))
-const pointRadius = 28
-const smallPointRadius = Math.floor(pointRadius / 1.6)
+const smallCanvasSize = computed(() => {
+  const scale = canvasSize.value < 280 ? 0.6 : (canvasSize.value < 300 ? 0.62 : 0.625)
+  return Math.floor(canvasSize.value * scale)
+})
+const pointRadius = computed(() => canvasSize.value < 280 ? 22 : 28)
+const smallPointRadius = computed(() => Math.floor(pointRadius.value * 0.62))
 
-const gesturePoints = ref([])
-const smallGesturePoints = ref([])
-const selectedPoints = ref([])
-const lines = ref([])
-const currentLine = ref(null)
-const isDrawing = ref(false)
-const hasError = ref(false)
-const hasSuccess = ref(false)
+const mainDrawer = useGestureDrawer({
+  canvasSize,
+  pointRadius: pointRadius.value || 28
+})
 
-const resetSelectedPoints = ref([])
-const resetLines = ref([])
-const resetCurrentLine = ref(null)
-const isResetDrawing = ref(false)
-const resetHasError = ref(false)
+const resetDrawer = useGestureDrawer({
+  canvasSize: smallCanvasSize,
+  pointRadius: smallPointRadius.value || 17
+})
+
+const gesturePad = ref(null)
+const resetPad = ref(null)
 const showResetConfirm = ref(false)
-const resetMessage = ref('')
 
 const message = ref('')
 const messageType = ref('info')
 const lockTimer = ref(null)
 const lockRemaining = ref(0)
-
-const gesturePad = ref(null)
-const resetPad = ref(null)
 
 const statusLabel = computed(() => getStatusLabel(currentStatus.value))
 
@@ -314,19 +312,19 @@ const statusColor = computed(() => {
 })
 
 const stepLabel = computed(() => {
-  if (hasError.value) return message.value
-  if (hasSuccess.value) return message.value
+  if (mainDrawer.hasError.value) return mainDrawer.message.value
+  if (mainDrawer.hasSuccess.value) return mainDrawer.message.value
   return getStepLabel(currentStep.value)
 })
 
-const lineColor = computed(() => {
-  if (hasError.value) return '#ef4444'
-  if (hasSuccess.value) return '#10b981'
+const mainLineColor = computed(() => {
+  if (mainDrawer.hasError.value) return '#ef4444'
+  if (mainDrawer.hasSuccess.value) return '#10b981'
   return '#3b82f6'
 })
 
 const resetLineColor = computed(() => {
-  return resetHasError.value ? '#ef4444' : '#3b82f6'
+  return resetDrawer.hasError.value ? '#ef4444' : '#3b82f6'
 })
 
 const showGestureArea = computed(() => {
@@ -336,15 +334,17 @@ const showGestureArea = computed(() => {
 const showActions = computed(() => {
   return currentStatus.value === DRAWING ||
          currentStatus.value === CONFIRMING ||
-         currentStatus.value === SET
+         (currentStatus.value === SET && currentStep.value === IDLE)
 })
 
 const canCancel = computed(() => {
-  return currentStatus.value === DRAWING || currentStatus.value === CONFIRMING
+  return currentStatus.value === DRAWING ||
+         currentStatus.value === CONFIRMING ||
+         (currentStatus.value === SET && currentStep.value === RESET)
 })
 
 const canReset = computed(() => {
-  return currentStatus.value === SET
+  return currentStatus.value === SET && currentStep.value === IDLE
 })
 
 const remainingAttempts = computed(() => {
@@ -367,125 +367,64 @@ const canUnlock = computed(() => {
   return isLocked.value && isLockExpired(lockStartTime.value, LOCK_DURATION)
 })
 
-function initGesturePoints() {
-  const padding = 40
-  const usableSize = canvasSize.value - padding * 2
-  const gap = usableSize / 2
-
-  gesturePoints.value = []
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 3; col++) {
-      gesturePoints.value.push({
-        x: padding + col * gap,
-        y: padding + row * gap,
-        index: row * 3 + col
-      })
-    }
-  }
-
-  const smallPadding = Math.floor(padding / 1.6)
-  const smallUsableSize = smallCanvasSize.value - smallPadding * 2
-  const smallGap = smallUsableSize / 2
-
-  smallGesturePoints.value = []
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 3; col++) {
-      smallGesturePoints.value.push({
-        x: smallPadding + col * smallGap,
-        y: smallPadding + row * smallGap,
-        index: row * 3 + col
-      })
-    }
-  }
-}
-
-function getPointFromEvent(event, pad, points, radius) {
-  const rect = pad.getBoundingClientRect()
-  const clientX = event.touches ? event.touches[0].clientX : event.clientX
-  const clientY = event.touches ? event.touches[0].clientY : event.clientY
-  const x = clientX - rect.left
-  const y = clientY - rect.top
-
-  for (let i = 0; i < points.value.length; i++) {
-    const point = points.value[i]
-    const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2))
-    if (distance <= radius) {
-      return { index: i, x, y }
-    }
-  }
-
-  return { index: -1, x, y }
-}
-
-function startDrawing(event) {
+function handleMainStart(event) {
   if (!canDraw()) return
-  isDrawing.value = true
-  hasError.value = false
-  hasSuccess.value = false
-  message.value = ''
-  selectedPoints.value = []
-  lines.value = []
-  currentLine.value = null
-
-  const result = getPointFromEvent(event, gesturePad.value, gesturePoints, pointRadius)
-  if (result.index !== -1) {
-    addPoint(result.index)
-  }
+  mainDrawer.startDrawing(event, gesturePad.value)
 }
 
-function draw(event) {
-  if (!isDrawing.value) return
+function handleMainDraw(event) {
+  mainDrawer.draw(event, gesturePad.value)
+}
 
-  const result = getPointFromEvent(event, gesturePad.value, gesturePoints, pointRadius)
+function handleMainEnd() {
+  if (!mainDrawer.isDrawing.value) return
+  const result = mainDrawer.endDrawing()
 
-  if (result.index !== -1 && !selectedPoints.value.includes(result.index)) {
-    addPoint(result.index)
-  }
-
-  if (selectedPoints.value.length > 0) {
-    const lastPoint = gesturePoints.value[selectedPoints.value[selectedPoints.value.length - 1]]
-    currentLine.value = {
-      x1: lastPoint.x,
-      y1: lastPoint.y,
-      x2: result.x,
-      y2: result.y
+  if (!result.complete) {
+    if (result.error) {
+      showError(result.error, 'main')
     }
-  }
-}
-
-function endDrawing() {
-  if (!isDrawing.value) return
-  isDrawing.value = false
-  currentLine.value = null
-
-  if (selectedPoints.value.length < MIN_POINTS) {
-    showError(`至少需要连接 ${MIN_POINTS} 个点位`)
     return
   }
 
-  handleGestureComplete(selectedPoints.value)
+  handleGestureComplete(result.points)
 }
 
-function handleMouseLeave() {
-  if (isDrawing.value) {
-    endDrawing()
+function handleMainLeave() {
+  if (mainDrawer.isDrawing.value) {
+    handleMainEnd()
   }
 }
 
-function addPoint(index) {
-  const pointsArr = selectedPoints.value
-  pointsArr.push(index)
+function handleResetStart(event) {
+  if (isLocked.value) return
+  resetDrawer.startDrawing(event, resetPad.value)
+}
 
-  if (pointsArr.length > 1) {
-    const prevIndex = pointsArr[pointsArr.length - 2]
-    const prevPoint = gesturePoints.value[prevIndex]
-    const currPoint = gesturePoints.value[index]
-    lines.value.push({
-      x1: prevPoint.x,
-      y1: prevPoint.y,
-      x2: currPoint.x,
-      y2: currPoint.y
-    })
+function handleResetDraw(event) {
+  resetDrawer.draw(event, resetPad.value)
+}
+
+function handleResetEnd() {
+  if (!resetDrawer.isDrawing.value) return
+  const result = resetDrawer.endDrawing()
+
+  if (!result.complete) {
+    if (result.error) {
+      showError(result.error, 'reset')
+      setTimeout(() => {
+        if (!isLocked.value) resetDrawer.clear()
+      }, 1500)
+    }
+    return
+  }
+
+  handleResetComplete(result.points)
+}
+
+function handleResetLeave() {
+  if (resetDrawer.isDrawing.value) {
+    handleResetEnd()
   }
 }
 
@@ -504,27 +443,27 @@ function handleGestureComplete(points) {
     const result = setFirstGesture(status, step, points)
     applyResult(result)
     if (result.success) {
-      clearGesturePad()
+      mainDrawer.clear()
     } else {
-      showError(result.error)
+      showError(result.error, 'main')
     }
   } else if (status === CONFIRMING && step === SECOND_DRAW) {
     const result = confirmGesture(status, step, firstGesture.value, points)
     applyResult(result)
     if (result.success) {
-      showSuccess('手势密码设置成功')
-      setTimeout(clearGesturePad, 1500)
+      showSuccess('手势密码设置成功', 'main')
+      setTimeout(() => { mainDrawer.clear() }, 1500)
     } else {
-      showError(result.error)
+      showError(result.error, 'main')
     }
-  } else if (status === SET) {
+  } else if (status === SET && step === IDLE) {
     const result = verifyGesture(status, savedGesture.value, points, errorCount.value)
     applyResult(result)
     if (result.success) {
-      showSuccess('验证成功')
-      setTimeout(clearGesturePad, 1500)
+      showSuccess('验证成功', 'main')
+      setTimeout(() => { mainDrawer.clear() }, 1500)
     } else {
-      showError(result.error)
+      showError(result.error, 'main')
     }
   }
 }
@@ -564,31 +503,24 @@ function applyResult(result) {
   }
 }
 
-function showError(msg) {
-  hasError.value = true
-  message.value = msg
-  messageType.value = 'error'
-  setTimeout(() => {
-    if (!isLocked.value) {
-      clearGesturePad()
-    }
-  }, 1500)
+function showError(msg, target = 'main') {
+  if (target === 'main') {
+    mainDrawer.showError(msg)
+    messageType.value = 'error'
+    setTimeout(() => {
+      if (!isLocked.value) {
+        mainDrawer.clear()
+      }
+    }, 1500)
+  } else {
+    resetDrawer.showError(msg)
+  }
 }
 
-function showSuccess(msg) {
-  hasSuccess.value = true
-  message.value = msg
-  messageType.value = 'success'
-}
-
-function clearGesturePad() {
-  selectedPoints.value = []
-  lines.value = []
-  currentLine.value = null
-  hasError.value = false
-  hasSuccess.value = false
-  if (!isLocked.value) {
-    message.value = ''
+function showSuccess(msg, target = 'main') {
+  if (target === 'main') {
+    mainDrawer.showSuccess(msg)
+    messageType.value = 'success'
   }
 }
 
@@ -599,22 +531,31 @@ function handleToggle(event) {
 
   if (result.success) {
     if (!enabled) {
-      clearGesturePad()
-      showSuccess('手势密码已关闭')
+      mainDrawer.clear()
+      showSuccess('手势密码已关闭', 'main')
     } else {
-      clearGesturePad()
+      mainDrawer.clear()
       message.value = '请绘制新手势密码'
     }
   } else {
     event.target.checked = isEnabled.value
-    showError(result.error)
+    showError(result.error, 'main')
   }
 }
 
 function handleCancel() {
-  const result = cancelReset(currentStatus.value)
+  const result = cancelReset(currentStatus.value, currentStep.value)
   applyResult(result)
-  clearGesturePad()
+  mainDrawer.clear()
+}
+
+function handleOpenReset() {
+  const result = enterResetStep(currentStatus.value)
+  applyResult(result)
+  if (result.success) {
+    showResetConfirm.value = true
+    resetDrawer.clear()
+  }
 }
 
 function handleUnlock() {
@@ -622,8 +563,36 @@ function handleUnlock() {
   applyResult(result)
   if (result.success) {
     stopLockTimer()
-    clearGesturePad()
+    mainDrawer.clear()
     message.value = '请验证手势密码'
+  }
+}
+
+function handleResetComplete(points) {
+  const result = startReset(currentStatus.value, currentStep.value, savedGesture.value, points, errorCount.value)
+  applyResult(result)
+
+  if (result.success) {
+    closeResetModal()
+    mainDrawer.clear()
+    showSuccess('验证成功，请绘制新手势', 'main')
+  } else {
+    showError(result.error, 'reset')
+    if (result.isLocked) {
+      setTimeout(closeResetModal, 1500)
+    } else {
+      setTimeout(() => {
+        resetDrawer.clear()
+      }, 1500)
+    }
+  }
+}
+
+function closeResetModal() {
+  showResetConfirm.value = false
+  resetDrawer.clear()
+  if (currentStep.value === RESET) {
+    state.value.step = IDLE
   }
 }
 
@@ -649,111 +618,6 @@ function updateLockRemaining() {
   }
 }
 
-function startResetDrawing(event) {
-  if (isLocked.value) return
-  isResetDrawing.value = true
-  resetHasError.value = false
-  resetMessage.value = ''
-  resetSelectedPoints.value = []
-  resetLines.value = []
-  resetCurrentLine.value = null
-
-  const result = getPointFromEvent(event, resetPad.value, smallGesturePoints, smallPointRadius)
-  if (result.index !== -1) {
-    addResetPoint(result.index)
-  }
-}
-
-function drawReset(event) {
-  if (!isResetDrawing.value) return
-
-  const result = getPointFromEvent(event, resetPad.value, smallGesturePoints, smallPointRadius)
-
-  if (result.index !== -1 && !resetSelectedPoints.value.includes(result.index)) {
-    addResetPoint(result.index)
-  }
-
-  if (resetSelectedPoints.value.length > 0) {
-    const lastPoint = smallGesturePoints.value[resetSelectedPoints.value[resetSelectedPoints.value.length - 1]]
-    resetCurrentLine.value = {
-      x1: lastPoint.x * 1.6,
-      y1: lastPoint.y * 1.6,
-      x2: result.x * 1.6,
-      y2: result.y * 1.6
-    }
-  }
-}
-
-function endResetDrawing() {
-  if (!isResetDrawing.value) return
-  isResetDrawing.value = false
-  resetCurrentLine.value = null
-
-  if (resetSelectedPoints.value.length < MIN_POINTS) {
-    resetHasError.value = true
-    resetMessage.value = `至少需要连接 ${MIN_POINTS} 个点位`
-    setTimeout(clearResetPad, 1500)
-    return
-  }
-
-  handleResetComplete(resetSelectedPoints.value)
-}
-
-function handleResetMouseLeave() {
-  if (isResetDrawing.value) {
-    endResetDrawing()
-  }
-}
-
-function addResetPoint(index) {
-  const pointsArr = resetSelectedPoints.value
-  pointsArr.push(index)
-
-  if (pointsArr.length > 1) {
-    const prevIndex = pointsArr[pointsArr.length - 2]
-    const prevPoint = smallGesturePoints.value[prevIndex]
-    const currPoint = smallGesturePoints.value[index]
-    resetLines.value.push({
-      x1: prevPoint.x * 1.6,
-      y1: prevPoint.y * 1.6,
-      x2: currPoint.x * 1.6,
-      y2: currPoint.y * 1.6
-    })
-  }
-}
-
-function handleResetComplete(points) {
-  const result = startReset(currentStatus.value, savedGesture.value, points, errorCount.value)
-  applyResult(result)
-
-  if (result.success) {
-    closeResetModal()
-    clearGesturePad()
-    showSuccess('验证成功，请绘制新手势')
-  } else {
-    resetHasError.value = true
-    resetMessage.value = result.error
-    if (result.isLocked) {
-      setTimeout(closeResetModal, 1500)
-    } else {
-      setTimeout(clearResetPad, 1500)
-    }
-  }
-}
-
-function clearResetPad() {
-  resetSelectedPoints.value = []
-  resetLines.value = []
-  resetCurrentLine.value = null
-  resetHasError.value = false
-  resetMessage.value = ''
-}
-
-function closeResetModal() {
-  showResetConfirm.value = false
-  clearResetPad()
-}
-
 function updateCanvasSize() {
   const width = window.innerWidth
   if (width <= 375) {
@@ -763,7 +627,8 @@ function updateCanvasSize() {
   } else {
     canvasSize.value = 300
   }
-  initGesturePoints()
+  mainDrawer.initGesturePoints()
+  resetDrawer.initGesturePoints()
 }
 
 watch(isLocked, (locked) => {
@@ -772,6 +637,11 @@ watch(isLocked, (locked) => {
   } else {
     stopLockTimer()
   }
+})
+
+watch(canvasSize, () => {
+  mainDrawer.initGesturePoints()
+  resetDrawer.initGesturePoints()
 })
 
 onMounted(() => {
@@ -996,8 +866,8 @@ onUnmounted(() => {
 }
 
 .gesture-pad.small {
-  width: 180px;
-  height: 180px;
+  width: auto;
+  height: auto;
 }
 
 .gesture-canvas {

@@ -1,0 +1,5 @@
+你实现的邀请返利页面还存在一些问题，需要进行修复：
+1. rewardCalculator.js 中 calculateTierBonus 函数存在 `void prevTierInvites` 死代码语句，变量被计算后直接丢弃，函数最终只返回最高达到的单个阶梯奖金而非累计阶梯奖金，需要清理死代码并修正阶梯奖金累积计算逻辑。
+2. withdrawalAvailability.js 中 checkWithdrawalAvailability 函数将请求金额超出单笔上限、可提现余额不足、未达最低提现金额三种截然不同的失败条件全部映射到同一个 MIN_AMOUNT_NOT_MET 状态码，导致调用方无法根据状态码区分具体失败原因。需要为不同的失败条件定义不同的状态码。
+3. InviteRebate.vue 中二维码区域仅展示了 emoji 图标和"扫码加入"文字作为静态占位符，没有实际生成或渲染 QR 码图像。分享到微信、微博、QQ 的 shareTo 函数仅弹出 Toast 提示文字，没有实际唤起分享操作的逻辑。需要为二维码和分享提供可工作的实现方案。
+4. 修复后需要确保 pnpm run test 全部通过。

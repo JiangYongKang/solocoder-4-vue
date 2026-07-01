@@ -1,18 +1,18 @@
-import { describe, it, expect } from 'vitest'
-import {
-  getTaskProgress,
-  getTaskStatus,
-  canClaimTask,
-  updateTaskProgress,
-  calculateTaskRewards,
-  filterTasksByType,
-  filterTasksByStatus,
-  sortTasksByPriority,
-  checkTaskExpiration,
-  formatTimeRemaining,
-  getTaskAction
-} from '../../growth-level/taskProgress.js'
+import { describe, expect, it } from 'vitest'
 import { TASK_STATUS, TASK_TYPES } from '../../growth-level/constants.js'
+import {
+    calculateTaskRewards,
+    canClaimTask,
+    checkTaskExpiration,
+    filterTasksByStatus,
+    filterTasksByType,
+    formatTimeRemaining,
+    getTaskAction,
+    getTaskProgress,
+    getTaskStatus,
+    sortTasksByPriority,
+    updateTaskProgress
+} from '../../growth-level/taskProgress.js'
 
 describe('taskProgress', () => {
   describe('getTaskProgress', () => {

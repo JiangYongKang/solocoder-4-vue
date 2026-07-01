@@ -1,28 +1,30 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  validatePasswordFormat,
-  validateSmsCodeFormat,
-  validateEmailCodeFormat,
-  validateFormat,
-  checkAttempts,
-  verifyPassword,
-  verifySmsCode,
-  verifyEmailCode,
-  verifyIdentity,
-  performVerificationWithAttempts,
-  generateVerificationCode,
-  getCodeExpirationTime,
-  isCodeExpired,
-  getMaskedPhone,
-  getMaskedEmail
-} from '../../account-cancellation/identityVerification.js'
-import {
-  VERIFICATION_METHOD,
-  VERIFICATION_ERRORS,
-  MAX_VERIFICATION_ATTEMPTS,
-  SMS_CODE_LENGTH,
-  EMAIL_CODE_LENGTH
+    EMAIL_CODE_LENGTH,
+    MAX_VERIFICATION_ATTEMPTS,
+    SMS_CODE_LENGTH,
+    VERIFICATION_ERRORS,
+    VERIFICATION_METHOD
 } from '../../account-cancellation/constants.js'
+import {
+    checkAttempts,
+    generateVerificationCode,
+    getCodeExpirationTime,
+    getMaskedEmail,
+    getMaskedPhone,
+    isCodeExpired,
+    performVerificationWithAttempts,
+    sendVerificationCodeAsync,
+    validateEmailCodeFormat,
+    validateFormat,
+    validatePasswordFormat,
+    validateSmsCodeFormat,
+    verifyEmailCode,
+    verifyIdentity,
+    verifyIdentityAsync,
+    verifyPassword,
+    verifySmsCode
+} from '../../account-cancellation/identityVerification.js'
 
 describe('identityVerification', () => {
   describe('validatePasswordFormat', () => {
@@ -196,10 +198,24 @@ describe('identityVerification', () => {
       expect(result.error).toBe(VERIFICATION_ERRORS.WRONG_CODE)
     })
 
-    it('should pass for correct code', () => {
+    it('should pass for correct default code', () => {
       const result = verifySmsCode('123456')
       expect(result.valid).toBe(true)
       expect(result.error).toBeNull()
+    })
+
+    it('should pass with custom expected code', () => {
+      const customCode = '654321'
+      const result = verifySmsCode('654321', customCode)
+      expect(result.valid).toBe(true)
+      expect(result.error).toBeNull()
+    })
+
+    it('should fail when custom code does not match', () => {
+      const customCode = '654321'
+      const result = verifySmsCode('111111', customCode)
+      expect(result.valid).toBe(false)
+      expect(result.error).toBe(VERIFICATION_ERRORS.WRONG_CODE)
     })
   })
 
@@ -209,9 +225,21 @@ describe('identityVerification', () => {
       expect(result.valid).toBe(false)
     })
 
-    it('should pass for correct code', () => {
+    it('should pass for correct default code', () => {
       const result = verifyEmailCode('123456')
       expect(result.valid).toBe(true)
+    })
+
+    it('should pass with custom expected code', () => {
+      const customCode = '987654'
+      const result = verifyEmailCode('987654', customCode)
+      expect(result.valid).toBe(true)
+    })
+
+    it('should fail when custom code does not match', () => {
+      const customCode = '987654'
+      const result = verifyEmailCode('111111', customCode)
+      expect(result.valid).toBe(false)
     })
   })
 
@@ -221,13 +249,23 @@ describe('identityVerification', () => {
       expect(result.valid).toBe(true)
     })
 
-    it('should verify SMS code via method', () => {
+    it('should verify SMS code via method with default code', () => {
       const result = verifyIdentity(VERIFICATION_METHOD.SMS_CODE, '123456')
       expect(result.valid).toBe(true)
     })
 
-    it('should verify email code via method', () => {
+    it('should verify email code via method with default code', () => {
       const result = verifyIdentity(VERIFICATION_METHOD.EMAIL_CODE, '123456')
+      expect(result.valid).toBe(true)
+    })
+
+    it('should verify SMS code with custom expected code', () => {
+      const result = verifyIdentity(VERIFICATION_METHOD.SMS_CODE, '654321', '654321')
+      expect(result.valid).toBe(true)
+    })
+
+    it('should verify email code with custom expected code', () => {
+      const result = verifyIdentity(VERIFICATION_METHOD.EMAIL_CODE, '987654', '987654')
       expect(result.valid).toBe(true)
     })
 
@@ -282,7 +320,7 @@ describe('identityVerification', () => {
       expect(result.error).toBe(VERIFICATION_ERRORS.TOO_MANY_ATTEMPTS)
     })
 
-    it('should work for SMS code verification', () => {
+    it('should work for SMS code verification with default code', () => {
       const result = performVerificationWithAttempts(
         VERIFICATION_METHOD.SMS_CODE,
         '123456',
@@ -290,6 +328,134 @@ describe('identityVerification', () => {
       )
       expect(result.valid).toBe(true)
       expect(result.attempts).toBe(0)
+    })
+
+    it('should work for SMS code with custom expected code', () => {
+      const customCode = '111222'
+      const result = performVerificationWithAttempts(
+        VERIFICATION_METHOD.SMS_CODE,
+        '111222',
+        0,
+        customCode
+      )
+      expect(result.valid).toBe(true)
+      expect(result.attempts).toBe(0)
+    })
+
+    it('should work for email code with custom expected code', () => {
+      const customCode = '333444'
+      const result = performVerificationWithAttempts(
+        VERIFICATION_METHOD.EMAIL_CODE,
+        '333444',
+        1,
+        customCode
+      )
+      expect(result.valid).toBe(true)
+      expect(result.attempts).toBe(0)
+    })
+
+    it('should fail when custom code does not match', () => {
+      const customCode = '111222'
+      const result = performVerificationWithAttempts(
+        VERIFICATION_METHOD.SMS_CODE,
+        '999999',
+        0,
+        customCode
+      )
+      expect(result.valid).toBe(false)
+      expect(result.attempts).toBe(1)
+    })
+  })
+
+  describe('sendVerificationCodeAsync', () => {
+    it('should generate a 6-digit code', async () => {
+      const originalRandom = Math.random
+      try {
+        Math.random = () => 0.5
+        const code = await sendVerificationCodeAsync(VERIFICATION_METHOD.SMS_CODE, '13800138000')
+        expect(code).toHaveLength(6)
+        expect(/^\d+$/.test(code)).toBe(true)
+      } finally {
+        Math.random = originalRandom
+      }
+    })
+
+    it('should throw network error when random fails', async () => {
+      const originalRandom = Math.random
+      try {
+        Math.random = () => 0.05
+        await expect(sendVerificationCodeAsync(VERIFICATION_METHOD.SMS_CODE, '13800138000'))
+          .rejects
+          .toThrow(VERIFICATION_ERRORS.NETWORK_ERROR)
+      } finally {
+        Math.random = originalRandom
+      }
+    })
+  })
+
+  describe('verifyIdentityAsync', () => {
+    it('should succeed with correct credentials', async () => {
+      const originalRandom = Math.random
+      try {
+        Math.random = () => 0.5
+        const result = await verifyIdentityAsync(
+          VERIFICATION_METHOD.PASSWORD,
+          'password123',
+          0
+        )
+        expect(result.valid).toBe(true)
+        expect(result.attempts).toBe(0)
+        expect(result.locked).toBe(false)
+      } finally {
+        Math.random = originalRandom
+      }
+    })
+
+    it('should fail with wrong credentials', async () => {
+      const originalRandom = Math.random
+      try {
+        Math.random = () => 0.5
+        const result = await verifyIdentityAsync(
+          VERIFICATION_METHOD.PASSWORD,
+          'wrongpass',
+          0
+        )
+        expect(result.valid).toBe(false)
+        expect(result.attempts).toBe(1)
+      } finally {
+        Math.random = originalRandom
+      }
+    })
+
+    it('should throw network error when random fails', async () => {
+      const originalRandom = Math.random
+      try {
+        Math.random = () => 0.05
+        await expect(verifyIdentityAsync(
+          VERIFICATION_METHOD.PASSWORD,
+          'password123',
+          0
+        )).rejects.toThrow(VERIFICATION_ERRORS.NETWORK_ERROR)
+      } finally {
+        Math.random = originalRandom
+      }
+    })
+
+    it('should work with custom expected code', async () => {
+      const originalRandom = Math.random
+      try {
+        Math.random = () => 0.5
+        const customCode = '555666'
+        const result = await verifyIdentityAsync(
+          VERIFICATION_METHOD.SMS_CODE,
+          '555666',
+          0,
+          customCode
+        )
+        expect(result.valid).toBe(true)
+      } finally {
+        Math.random = originalRandom
+      }
     })
   })
 
@@ -307,11 +473,18 @@ describe('identityVerification', () => {
     })
 
     it('should generate different codes (randomness check)', () => {
-      const codes = new Set()
-      for (let i = 0; i < 20; i++) {
-        codes.add(generateVerificationCode())
+      const originalRandom = Math.random
+      try {
+        Math.random = () => Math.random()
+        const codes = new Set()
+        for (let i = 0; i < 20; i++) {
+          Math.random = () => i * 0.05
+          codes.add(generateVerificationCode())
+        }
+        expect(codes.size).toBeGreaterThan(1)
+      } finally {
+        Math.random = originalRandom
       }
-      expect(codes.size).toBeGreaterThan(1)
     })
   })
 

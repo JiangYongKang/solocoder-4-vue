@@ -63,7 +63,6 @@
             id="register-confirm"
             v-model="formData.confirmPassword"
             :type="showConfirmPassword ? 'text' : 'password'"
-            type="password"
             class="field-input"
             :class="{ 'has-error': errors.confirmPassword || submitError }"
             placeholder="请再次输入密码"

@@ -93,7 +93,7 @@ describe('withdrawalAvailability', () => {
       expect(result.status).toBe(WITHDRAWAL_STATUS.MIN_AMOUNT_NOT_MET)
     })
 
-    it('should return MIN_AMOUNT_NOT_MET when requested amount exceeds max', () => {
+    it('should return MAX_AMOUNT_EXCEEDED when requested amount exceeds max', () => {
       const result = checkWithdrawalAvailability({
         availableBalance: 100000,
         isIdentityVerified: true,
@@ -101,16 +101,52 @@ describe('withdrawalAvailability', () => {
         maxAmount: 50000
       })
       expect(result.available).toBe(false)
-      expect(result.status).toBe(WITHDRAWAL_STATUS.MIN_AMOUNT_NOT_MET)
+      expect(result.status).toBe(WITHDRAWAL_STATUS.MAX_AMOUNT_EXCEEDED)
+      expect(result.excess).toBe(30000)
     })
 
-    it('should return MIN_AMOUNT_NOT_MET when requested exceeds balance', () => {
+    it('should return INSUFFICIENT_BALANCE when requested exceeds balance', () => {
       const result = checkWithdrawalAvailability({
         availableBalance: 500,
         isIdentityVerified: true,
         requestedAmount: 600
       })
       expect(result.available).toBe(false)
+      expect(result.status).toBe(WITHDRAWAL_STATUS.INSUFFICIENT_BALANCE)
+      expect(result.shortfall).toBe(100)
+    })
+
+    it('should correctly distinguish three distinct amount failure modes', () => {
+      const minResult = checkWithdrawalAvailability({
+        availableBalance: 50,
+        isIdentityVerified: true,
+        requestedAmount: 50,
+        minAmount: 100,
+        maxAmount: 50000
+      })
+      expect(minResult.status).toBe(WITHDRAWAL_STATUS.MIN_AMOUNT_NOT_MET)
+
+      const maxResult = checkWithdrawalAvailability({
+        availableBalance: 60000,
+        isIdentityVerified: true,
+        requestedAmount: 60000,
+        minAmount: 100,
+        maxAmount: 50000
+      })
+      expect(maxResult.status).toBe(WITHDRAWAL_STATUS.MAX_AMOUNT_EXCEEDED)
+
+      const balResult = checkWithdrawalAvailability({
+        availableBalance: 200,
+        isIdentityVerified: true,
+        requestedAmount: 300,
+        minAmount: 100,
+        maxAmount: 50000
+      })
+      expect(balResult.status).toBe(WITHDRAWAL_STATUS.INSUFFICIENT_BALANCE)
+
+      expect(minResult.status).not.toBe(maxResult.status)
+      expect(maxResult.status).not.toBe(balResult.status)
+      expect(minResult.status).not.toBe(balResult.status)
     })
 
     it('should return COOLDOWN_ACTIVE during cooldown period', () => {

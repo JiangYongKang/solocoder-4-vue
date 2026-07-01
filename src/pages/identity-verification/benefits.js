@@ -1,18 +1,8 @@
+import { VERIFICATION_STATUS } from './constants.js'
+
+const APPROVED = VERIFICATION_STATUS.APPROVED
+
 export const VERIFICATION_BENEFITS = [
-  {
-    id: 'unlock_transaction',
-    icon: '💰',
-    title: '解锁交易功能',
-    description: '完成认证后可进行充值、提现、转账等资金操作',
-    unlocked: true
-  },
-  {
-    id: 'increase_limit',
-    icon: '📈',
-    title: '提升交易限额',
-    description: '单笔和单日交易限额大幅提升，满足大额需求',
-    unlocked: true
-  },
   {
     id: 'security_protection',
     icon: '🛡️',
@@ -21,25 +11,39 @@ export const VERIFICATION_BENEFITS = [
     unlocked: true
   },
   {
-    id: 'priority_service',
-    icon: '🎯',
-    title: '优先客服服务',
-    description: '问题反馈优先处理，享受专属客服通道',
-    unlocked: true
+    id: 'unlock_transaction',
+    icon: '💰',
+    title: '解锁交易功能',
+    description: '完成认证后可进行充值、提现、转账等资金操作',
+    unlocked: false
+  },
+  {
+    id: 'increase_limit',
+    icon: '📈',
+    title: '提升交易限额',
+    description: '单笔和单日交易限额大幅提升，满足大额需求',
+    unlocked: false
   },
   {
     id: 'feature_access',
     icon: '🔓',
     title: '完整功能使用',
     description: '解锁平台所有功能，包括高风险操作权限',
-    unlocked: true
+    unlocked: false
+  },
+  {
+    id: 'priority_service',
+    icon: '🎯',
+    title: '优先客服服务',
+    description: '问题反馈优先处理，享受专属客服通道',
+    unlocked: false
   },
   {
     id: 'activity_participation',
     icon: '🎁',
     title: '专属活动参与',
     description: '可参与实名认证用户专属的优惠活动',
-    unlocked: true
+    unlocked: false
   }
 ]
 
@@ -65,7 +69,7 @@ export const UNVERIFIED_RESTRICTIONS = [
 ]
 
 export function getBenefitsByStatus(status) {
-  const isApproved = status === 'approved'
+  const isApproved = status === APPROVED
 
   return VERIFICATION_BENEFITS.map(benefit => ({
     ...benefit,
@@ -74,7 +78,7 @@ export function getBenefitsByStatus(status) {
 }
 
 export function getRestrictionsByStatus(status) {
-  if (status === 'approved') {
+  if (status === APPROVED) {
     return []
   }
   return UNVERIFIED_RESTRICTIONS

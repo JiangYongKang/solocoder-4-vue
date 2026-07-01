@@ -30,9 +30,17 @@
                 <div class="code-value">{{ formattedInviteCode }}</div>
               </div>
               <div class="invite-code-qr">
-                <div class="qr-placeholder">
-                  <span class="qr-icon">📱</span>
-                  <span class="qr-text">扫码加入</span>
+                <div class="qr-container">
+                  <img
+                    :src="qrCodeUrl"
+                    alt="邀请二维码"
+                    class="qr-image"
+                    @error="handleQrError"
+                  />
+                  <div v-if="qrLoadFailed" class="qr-fallback">
+                    <span class="qr-icon">📱</span>
+                    <span class="qr-text">扫码加入</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -469,6 +477,7 @@ const toastType = ref('success')
 const linkCopied = ref(false)
 const lastSharedChannel = ref(null)
 const activeTab = ref('records')
+const qrLoadFailed = ref(false)
 
 const isIdentityVerified = ref(true)
 const isAccountRestricted = ref(false)
@@ -606,6 +615,15 @@ const inviteLink = computed(() => {
     utm_source: 'invite',
     utm_medium: 'share'
   }) || ''
+})
+
+const qrCodeUrl = computed(() => {
+  const encodedLink = encodeURIComponent(inviteLink.value)
+  return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=${encodedLink}`
+})
+
+const shareText = computed(() => {
+  return `快来加入我们！使用我的邀请码 ${rawInviteCode.value}，注册即得好礼，邀请好友还能赚返利~`
 })
 
 const totalRewards = computed(() => calculateTotalRewards(inviteRecords.value))
@@ -747,6 +765,10 @@ async function copyInviteLink() {
   }
 }
 
+function handleQrError() {
+  qrLoadFailed.value = true
+}
+
 function shareTo(channelId) {
   lastSharedChannel.value = channelId
   const channelLabel = SHARE_CHANNEL_LABELS[channelId] || channelId
@@ -766,9 +788,43 @@ function shareTo(channelId) {
   } else if (channelId === SHARE_CHANNELS.LINK) {
     copyInviteLink()
   } else if (channelId === SHARE_CHANNELS.QRCODE) {
-    showToastMessage('请使用微信扫描二维码分享', 'info')
+    showToastMessage('请使用微信扫描二维码，或长按图片保存后分享', 'info')
+  } else if (channelId === SHARE_CHANNELS.WEIBO) {
+    const shareUrl = `https://service.weibo.com/share/share.php?url=${encodeURIComponent(inviteLink.value)}&title=${encodeURIComponent(shareText.value)}&pic=&sudaref=`
+    window.open(shareUrl, '_blank', 'width=700,height=580,scrollbars=yes')
+    showToastMessage(`正在跳转${channelLabel}分享页面...`, 'info')
+  } else if (channelId === SHARE_CHANNELS.QQ) {
+    const shareUrl = `https://connect.qq.com/widget/shareqq/index.html?url=${encodeURIComponent(inviteLink.value)}&title=${encodeURIComponent(shareText.value)}&desc=${encodeURIComponent(shareText.value)}&pics=&summary=`
+    window.open(shareUrl, '_blank', 'width=700,height=580,scrollbars=yes')
+    showToastMessage(`正在跳转${channelLabel}分享页面...`, 'info')
+  } else if (channelId === SHARE_CHANNELS.WECHAT) {
+    if (navigator.share && /MicroMessenger/i.test(navigator.userAgent)) {
+      navigator.share({
+        title: '邀请返利 - 好友加入得好礼',
+        text: shareText.value,
+        url: inviteLink.value
+      }).then(() => {
+        showToastMessage('微信分享成功', 'success')
+      }).catch(() => {
+        showToastMessage('请保存二维码图片，在微信中发送给好友', 'info')
+      })
+    } else {
+      showToastMessage('请保存二维码图片，在微信中扫描或发送给好友', 'info')
+    }
   } else {
-    showToastMessage(`正在唤起${channelLabel}分享...`, 'info')
+    if (navigator.share) {
+      navigator.share({
+        title: '邀请返利 - 好友加入得好礼',
+        text: shareText.value,
+        url: inviteLink.value
+      }).then(() => {
+        showToastMessage('分享成功', 'success')
+      }).catch(() => {
+        showToastMessage(`正在唤起${channelLabel}分享...`, 'info')
+      })
+    } else {
+      showToastMessage(`正在唤起${channelLabel}分享...`, 'info')
+    }
   }
 
   setTimeout(() => {
@@ -969,17 +1025,37 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.qr-placeholder {
+.qr-container {
   width: 100px;
   height: 100px;
   background: #ffffff;
-  border: 2px dashed #93c5fd;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.qr-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.qr-fallback {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
+  background: #ffffff;
+  border: 2px dashed #93c5fd;
+  border-radius: 8px;
 }
 
 .qr-icon {

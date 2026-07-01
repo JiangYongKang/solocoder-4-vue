@@ -1,0 +1,7 @@
+你实现的设备授权登录页还存在一些问题，需要进行修复：
+1. authorizationState.js 中 confirmAuthorization 和 rejectAuthorization 函数的防重复提交依赖外部传入 hasConfirmed 参数控制，纯 JS 层没有自身维护提交状态的能力。任何人调用时不传或传 false 给 hasConfirmed 就能绕过重复提交保护，安全逻辑分散在两个层面且缺乏内聚性。
+2. authorizationState.js 中 markAsScanned 函数通过硬编码判断 currentStatus === RISK 来绕过 transitionStatus 的正常校验，refreshAuthorization 同样硬编码判断 currentStatus === PENDING_SCAN 来绕过状态表。VALID_TRANSITIONS 表中这两个状态都不包含自身作为合法目标，状态机一致性被破坏。
+3. DeviceAuthorization.vue 中 handleConfirm 函数在设置 isSubmitting 后执行了 600ms 的 setTimeout 延迟，然后才调用纯同步的 confirmAuthorization 函数。这个延迟放在业务逻辑之前没有意义，增加了用户等待时间。
+4. DeviceAuthorization.vue 中 isTerminalStatus 将 TIMEOUT 列为终止态，但 TIMEOUT 实际可以通过 refreshAuthorization 转换回 PENDING_SCAN，将超时标记为不可操作状态在语义上不准确。同一个超时场景还被 canOperate 和 isExpired 两层条件分散控制。
+5. authorizationState.js 中 getHighRiskAdvice 函数依赖 deviceRiskLevel 参数生成风险建议，但 DeviceAuthorization.vue 中在异常风险场景下如果未设置 deviceRiskLevel，风险卡片会显示但建议内容为空。
+6. 修复后需要确保 pnpm run test 全部通过。

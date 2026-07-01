@@ -1,0 +1,7 @@
+产物不满意：
+1. DeviceAuthorization.vue 中确认和拒绝按钮的 :disabled 绑定（第 141 行和第 149 行）同时包含 `!canOperate || isSubmitting || isExpired`，而 canOperate 计算属性内部已包含对 `isExpired` 的检查（第 285 行 `if (isExpired.value) return false`）。模型在 session-cot-2.md 的修复说明中声称已将控制逻辑"合并为单一来源"，但模板中仍保留了冗余的 `|| isExpired` 检查。虽然不影响功能正确性，但造成了布尔逻辑的双重声明——当 isExpired 为 true 时，canOperate 会返回 false，随后模板又通过 `|| isExpired` 再次判断。其他开发者阅读时会对"为什么同一个条件要判断两次"产生困惑，且当未来需要修改过期逻辑时，模板中的冗余检查可能被误认为是独立的控制条件而被单独修改。应该删除模板中按钮 :disabled 内的 `|| isExpired`，仅依赖 canOperate 作为唯一的操作可行性判断来源。
+
+2. authorizationState.js 中旧的 confirmAuthorization（第 78-97 行）和 rejectAuthorization（第 99-119 行）纯函数仍然保留了原始的安全问题——它们依然依赖外部传入的 hasConfirmed 参数来控制防重复提交，调用方只需不传或传 false 即可绕过保护。虽然 Vue 组件已改用 createAuthorizationManager 有状态管理器，且这些纯函数在测试中被标记为"向后兼容"，但它们仍作为模块的公开导出函数存在并对任何导入方可见。如果将来新的组件或模块直接导入并使用 confirmAuthorization / rejectAuthorization 而非 createAuthorizationManager，防重复提交保护将完全失效。考虑到问题 1 的描述明确指出了"纯 JS 层没有自身维护提交状态的能力"这一缺陷，直接在纯函数层面放弃修复而仅靠新增一层管理器来规避问题，属于未从根本上消除安全漏洞的修复方式。理想做法有两种：（a）在纯函数体内一次性状态标记（如利用 WeakMap 做调用追踪），或（b）将旧的纯函数标记为 @deprecated 并在 JSDoc 中明确引导调用方使用 createAuthorizationManager，同时在函数内部添加 console.warn 弃用警告。当前实现两者均未做，埋下了未来误用的隐患。
+
+过程不满意：
+无。

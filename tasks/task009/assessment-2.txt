@@ -1,0 +1,6 @@
+产物不满意：
+1. rewardCalculator.test.js 中「calculateNextTierBonus - should show progress toward next tier exactly at threshold」测试用例（第 187 行）包含一条 `void tier` 死代码语句。该语句与前一个测试断言之间仅隔一行，属于明显的无意义表达式——`void` 运算符对局部变量 `tier` 求值后直接丢弃结果，与第 1 轮提示词中要求修复的 `void prevTierInvites` 完全属于同一类问题。虽然这并非本轮提示词明确要求的修复范围，但模型在第 2 轮修改该测试文件时（增加了 calculateTierBonus 累计逻辑测试），应当注意到同文件中存在相同模式的死代码并顺手修复。保留此类死代码会降低测试代码的专业性和可读性，其他开发者在阅读时会困惑这个 `void tier` 的意图。应该删除第 187 行的 `void tier` 语句。
+
+过程不满意：
+1. 模型在解决测试运行环境问题时，将 vite.config.js 中的 test.environment 从 happy-dom 改为 node 环境。这是一个影响全局配置的变更（作用于整个项目的所有测试文件），而不仅仅是邀请返利模块。模型在会话记录中自己提到「失败的都是其他模块（device-authorization 5 个、identity-verification 1 个）」，但没有追溯确认这些失败是否由环境切换引起——原本在 happy-dom 下这些模块的测试可能是通过的。直接改动全局配置来解决局部模块的测试运行问题是不精确的做法：正确的方式应该是在 vitest 配置文件中对特定测试文件或目录覆盖 environment 配置（使用 environmentMatchGlobs），或仅在 invite-rebate 的测试文件中通过 @vitest-environment 注释声明 node 环境。这样做既解决了当前模块的测试问题，又能保证不影响项目中其他依赖 DOM 环境的测试文件。
+2. 模型在修复 InviteRebate.vue 的二维码和分享功能时，仅依赖修改代码和运行单元测试来验证实现是否正确，没有启动开发服务器进行人工渲染验证。二维码区域是否正常显示 QR 码图片、图片加载失败的降级 UI 是否美观、分享按钮的交互反馈是否符合预期、window.open 弹窗是否被浏览器拦截，这些都无法通过纯 JS 单元测试覆盖。此外，附带的 CSS 修改（如 .qr-image、.qr-fallback 等样式类）也未经过视觉层面的验证。虽然这不是本轮提示词的明确要求，但作为一个声称"实现可工作的二维码和分享方案"的修改，缺乏渲染验证意味着模型无法确认这些功能在真实浏览器环境中的表现。

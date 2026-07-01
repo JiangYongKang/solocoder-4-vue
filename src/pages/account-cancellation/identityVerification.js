@@ -1,10 +1,9 @@
 import {
-  VERIFICATION_METHOD,
-  VERIFICATION_ERRORS,
-  MAX_VERIFICATION_ATTEMPTS,
-  SMS_CODE_LENGTH,
-  EMAIL_CODE_LENGTH,
-  PASSWORD_MIN_LENGTH
+    MAX_VERIFICATION_ATTEMPTS,
+    PASSWORD_MIN_LENGTH,
+    SMS_CODE_LENGTH,
+    VERIFICATION_ERRORS,
+    VERIFICATION_METHOD
 } from './constants.js'
 
 const VALID_SMS_CODE = /^\d{6}$/
@@ -107,13 +106,13 @@ export function verifyPassword(password) {
   return { valid: true, error: null }
 }
 
-export function verifySmsCode(code) {
+export function verifySmsCode(code, expectedCode = MOCK_CORRECT_CODE) {
   const formatResult = validateSmsCodeFormat(code)
   if (!formatResult.valid) {
     return formatResult
   }
 
-  if (code !== MOCK_CORRECT_CODE) {
+  if (code !== expectedCode) {
     return {
       valid: false,
       error: VERIFICATION_ERRORS.WRONG_CODE
@@ -123,13 +122,13 @@ export function verifySmsCode(code) {
   return { valid: true, error: null }
 }
 
-export function verifyEmailCode(code) {
+export function verifyEmailCode(code, expectedCode = MOCK_CORRECT_CODE) {
   const formatResult = validateEmailCodeFormat(code)
   if (!formatResult.valid) {
     return formatResult
   }
 
-  if (code !== MOCK_CORRECT_CODE) {
+  if (code !== expectedCode) {
     return {
       valid: false,
       error: VERIFICATION_ERRORS.WRONG_CODE
@@ -139,20 +138,20 @@ export function verifyEmailCode(code) {
   return { valid: true, error: null }
 }
 
-export function verifyIdentity(method, value) {
+export function verifyIdentity(method, value, expectedCode) {
   switch (method) {
     case VERIFICATION_METHOD.PASSWORD:
       return verifyPassword(value)
     case VERIFICATION_METHOD.SMS_CODE:
-      return verifySmsCode(value)
+      return verifySmsCode(value, expectedCode)
     case VERIFICATION_METHOD.EMAIL_CODE:
-      return verifyEmailCode(value)
+      return verifyEmailCode(value, expectedCode)
     default:
       return { valid: false, error: '未知的验证方式' }
   }
 }
 
-export function performVerificationWithAttempts(method, value, currentAttempts) {
+export function performVerificationWithAttempts(method, value, currentAttempts, expectedCode) {
   const attemptCheck = checkAttempts(currentAttempts)
   if (!attemptCheck.allowed) {
     return {
@@ -163,7 +162,7 @@ export function performVerificationWithAttempts(method, value, currentAttempts) 
     }
   }
 
-  const result = verifyIdentity(method, value)
+  const result = verifyIdentity(method, value, expectedCode)
   const newAttempts = result.valid ? 0 : currentAttempts + 1
   const isLocked = newAttempts >= MAX_VERIFICATION_ATTEMPTS
 
@@ -182,6 +181,22 @@ export function generateVerificationCode(length = SMS_CODE_LENGTH) {
     code += digits.charAt(Math.floor(Math.random() * digits.length))
   }
   return code
+}
+
+export async function sendVerificationCodeAsync(method, phoneOrEmail) {
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  if (Math.random() < 0.1) {
+    throw new Error(VERIFICATION_ERRORS.NETWORK_ERROR)
+  }
+  return generateVerificationCode(SMS_CODE_LENGTH)
+}
+
+export async function verifyIdentityAsync(method, value, currentAttempts, expectedCode) {
+  await new Promise(resolve => setTimeout(resolve, 800))
+  if (Math.random() < 0.1) {
+    throw new Error(VERIFICATION_ERRORS.NETWORK_ERROR)
+  }
+  return performVerificationWithAttempts(method, value, currentAttempts, expectedCode)
 }
 
 export function getCodeExpirationTime(minutes = 5) {

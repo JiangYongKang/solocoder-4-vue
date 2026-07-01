@@ -1,0 +1,9 @@
+产物不满意：
+1. 邀请模态框的空间选择下拉列表（第225行 `v-for="space in availableSpaces"`）使用了 `availableSpaces` 计算属性，该属性在第408-410行通过 `.filter(space => !isSpaceExpired(space))` 已将过期空间全部排除。然而模板中第229行仍编写了 `:disabled="isSpaceExpired(space)"` 和第231行 `{{ isSpaceExpired(space) ? ' (已过期)' : '' }}`，这两处代码因为循环中永远不会出现过期空间而成为不可达代码。`:disabled` 始终为 `false`（表现为 DOM 属性 `disabled="false"` 但不会禁用什么），`(已过期)` 标签永远不会渲染。这种矛盾的代码会误导后续维护者——当有人看到 disabled 和过期标签逻辑时，会误以为下拉列表中同时包含有效和过期空间。应该要么改为遍历 `spaces`（全部空间），仅通过 disabled 禁用过期项（让用户可以看见但不可选），要么保持当前过滤逻辑并删除多余的 disabled 属性和过期标签。
+
+2. 默认 `apiClient` 对象（第372-398行，共27行）包含完整的模拟实现代码——`setTimeout` 延迟、`Math.random()` 错误模拟、`generateMockSpaces()` 调用——全部内联在组件 `<script setup>` 中。虽然模拟失败逻辑已从 `handleSwitchSpace`/`handleSetDefault` 业务方法中分离（满足了提示词第5条要求），但将这个模拟 API 客户端直接定义在组件内部仍然混淆了组件关注点。任何开发者打开该文件时，首先映入眼帘的是 27 行模拟基础设施代码，然后才是真正的组件逻辑。更好的做法是将 `createMockApiClient` 工厂函数提取到 `mockData.js` 中，组件仅通过 `inject('apiClient', createMockApiClient())` 引用，使组件脚本保持简洁。
+
+3. `handleSendInvite` 方法（第489-523行）在事件发送上存在数据不一致：成功时 `emit('send-invite', inviteData)` 发送的是包含 spaceId、emails、role 的原始邀请数据，而失败时 `emit('send-invite', { error })` 仅发送错误对象。这意味着父组件在监听 `send-invite` 事件时，无法从失败事件中获知是哪个空间、发给哪些邮箱的邀请失败了，削弱了事件的可追溯性。失败时也应该至少附带 `inviteData` 信息，例如 `emit('send-invite', { inviteData, error })`。
+
+过程不满意：
+无

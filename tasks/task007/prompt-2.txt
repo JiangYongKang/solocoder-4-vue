@@ -1,0 +1,7 @@
+你实现的账号注销申请页还存在一些问题，需要进行修复：
+1. dataImpact.js 中 getScopeLabel 函数定义的数据清除范围标签（立即清除、冷静期结束清除、依法保留）与 constants.js 中 DATA_CLEAR_SCOPE_LABELS 常量（申请提交后立即清除、冷静期结束后清除、依法依规保留）表意不一致，两者的文案长度和措辞风格完全不同。DATA_CLEAR_SCOPE_LABELS 虽在 index.js 中导出却从未被任何组件或工具函数引用，成为死代码。需要统一两处标签文案，保持一致性并消除死代码。
+2. AccountCancellation.vue 中 handleVerify 方法将验证码对比值硬编码为 "123456"，完全绕过了 identityVerification.js 中已实现的 generateVerificationCode 随机码生成函数。handleSendCode 模拟了发送验证码后设置过期时间，但从未实际生成过随机验证码，整个验证码发送-接收-校验的闭环退化为形式流程。需要让组件真正集成 generateVerificationCode 函数。
+3. dataImpact.js 导出了 getHighRiskCategories 函数用于筛选高风险数据分类，但 AccountCancellation.vue 没有导入该函数，而是在组件内部用内联 filter 实现了完全相同的逻辑。这种重复实现导致未来高风险判定条件变更时两处代码不会同步修改。需要消除重复，统一使用 dataImpact.js 中已导出的函数。
+4. constants.js 中定义了 VERIFICATION_ERRORS.NETWORK_ERROR 常量，但 identityVerification.js 和 AccountCancellation.vue 的验证请求均未使用 try-catch 包裹也没有处理 Promise rejection，导致该常量和网络异常处理分支完全未被触发。
+5. coolingPeriod.js 中 getProgressStage 函数将冷却期 50% 到 99% 区间标签定为"冷静期中"，而 0% 到 49% 标签定为"冷静期初期"，"冷静期中"的中文语义应覆盖整个冷静期而非特指后半段，这种命名方式会造成用户认知困惑。
+6. 修复后需要确保 pnpm run test 全部通过。

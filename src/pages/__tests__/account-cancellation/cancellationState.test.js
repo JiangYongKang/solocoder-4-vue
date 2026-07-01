@@ -1,27 +1,27 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  CANCELLATION_STATUS,
-  COOLING_PERIOD_DAYS
-} from '../../account-cancellation/constants.js'
-import {
-  canTransition,
-  getNextPossibleTransitions,
-  transitionStatus,
-  submitCancellation,
-  revokeCancellation,
-  completeCancellation,
-  canSubmitCancellation,
-  canRevokeCancellation,
-  canViewProgress,
-  isTerminalStatus,
-  getStatusDescription,
-  getStatusIcon,
-  getStatusColor,
-  computeActualStatus,
-  getCancellationSummary,
-  getRevokeReasons,
-  canReapplyAfterRevoke
+    canReapplyAfterRevoke,
+    canRevokeCancellation,
+    canSubmitCancellation,
+    canTransition,
+    canViewProgress,
+    completeCancellation,
+    computeActualStatus,
+    getCancellationSummary,
+    getNextPossibleTransitions,
+    getRevokeReasons,
+    getStatusColor,
+    getStatusDescription,
+    getStatusIcon,
+    isTerminalStatus,
+    revokeCancellation,
+    submitCancellation,
+    transitionStatus
 } from '../../account-cancellation/cancellationState.js'
+import {
+    CANCELLATION_STATUS,
+    COOLING_PERIOD_DAYS
+} from '../../account-cancellation/constants.js'
 
 const NOT_APPLIED = CANCELLATION_STATUS.NOT_APPLIED
 const COOLING_PERIOD = CANCELLATION_STATUS.COOLING_PERIOD

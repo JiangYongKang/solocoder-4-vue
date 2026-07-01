@@ -139,6 +139,8 @@ export const FREEZE_REASON_SEVERITY = {
 export const WITHDRAWAL_STATUS = {
   AVAILABLE: 'available',
   MIN_AMOUNT_NOT_MET: 'min_amount_not_met',
+  MAX_AMOUNT_EXCEEDED: 'max_amount_exceeded',
+  INSUFFICIENT_BALANCE: 'insufficient_balance',
   IDENTITY_NOT_VERIFIED: 'identity_not_verified',
   ACCOUNT_RESTRICTED: 'account_restricted',
   COOLDOWN_ACTIVE: 'cooldown_active',
@@ -148,6 +150,8 @@ export const WITHDRAWAL_STATUS = {
 export const WITHDRAWAL_STATUS_LABELS = {
   [WITHDRAWAL_STATUS.AVAILABLE]: '可提现',
   [WITHDRAWAL_STATUS.MIN_AMOUNT_NOT_MET]: '未达最低提现金额',
+  [WITHDRAWAL_STATUS.MAX_AMOUNT_EXCEEDED]: '超出单笔提现上限',
+  [WITHDRAWAL_STATUS.INSUFFICIENT_BALANCE]: '可提现余额不足',
   [WITHDRAWAL_STATUS.IDENTITY_NOT_VERIFIED]: '请先完成实名认证',
   [WITHDRAWAL_STATUS.ACCOUNT_RESTRICTED]: '账户受限，暂不可提现',
   [WITHDRAWAL_STATUS.COOLDOWN_ACTIVE]: '提现冷却中',

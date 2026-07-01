@@ -37,9 +37,7 @@ export function calculateTierBonus(totalConvertedInvites) {
   for (let i = 0; i < tierBonus.length; i++) {
     const tier = tierBonus[i]
     if (totalConvertedInvites >= tier.invites) {
-      const prevTierInvites = i > 0 ? tierBonus[i - 1].invites : 0
-      totalBonus = tier.bonus
-      void prevTierInvites
+      totalBonus += tier.bonus
     } else {
       break
     }

@@ -1,7 +1,7 @@
 import { CANCELLATION_STATUS, COOLING_PERIOD_DAYS } from './constants.js'
 import {
-  checkStatusFromTime,
-  calculateCoolingPeriodEnd
+    calculateCoolingPeriodEnd,
+    checkStatusFromTime
 } from './coolingPeriod.js'
 
 const VALID_TRANSITIONS = {

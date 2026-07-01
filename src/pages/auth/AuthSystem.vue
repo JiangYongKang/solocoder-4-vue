@@ -44,7 +44,7 @@
     <main v-else class="auth-main">
       <component
         :is="currentComponent"
-        :token-expire-at="tokenExpireAt"
+        v-bind="componentProps"
         @navigate="handleNavigate"
         @login-success="handleLoginSuccess"
         @logout="handleLogout"
@@ -135,6 +135,15 @@ function refreshAuthState() {
 
 const currentComponent = computed(() => {
   return componentMap[currentRoute.value] || LoginPage
+})
+
+const routesNeedTokenExpire = [AUTH_ROUTES.PROFILE, AUTH_ROUTES.CHANGE_PASSWORD]
+
+const componentProps = computed(() => {
+  if (routesNeedTokenExpire.includes(currentRoute.value)) {
+    return { tokenExpireAt: tokenExpireAt.value }
+  }
+  return {}
 })
 
 const blockedBtnText = computed(() => {

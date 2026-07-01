@@ -1,0 +1,6 @@
+你实现的移动端手势设置页还存在一些问题，需要进行修复：
+1. gestureState.js 中 getStatusLabel 和 getStepLabel 函数内部自行定义了标签映射，与 constants.js 中已导出的 GESTURE_STATUS_LABELS 和 GESTURE_STEP_LABELS 常量完全重复。constants.js 中的常量虽被导入却从未被使用，形成双重定义。需要消除重复，让标签函数复用常量文件中的映射。
+2. GestureSettings.vue 中重置弹窗的坐标使用了硬编码的 1.6 倍来回转换策略，addResetPoint 和 drawReset 存储时坐标乘以 1.6，模板渲染时又除以 1.6。这个 1.6 与实际 canvasSize/smallCanvasSize 的动态计算结果脱钩，窗口尺寸变化后坐标系统会失效。需要让重置画布使用独立的坐标计算，而非硬编码缩放因子。
+3. gestureState.js 中 startReset 函数在验证原手势成功后直接转换到 DRAWING 状态和 FIRST_DRAW 步骤，完全跳过了 constants.js 中定义的 GESTURE_STEP.RESET 步骤，导致该步骤常量和标签成为死代码。需要将 RESET 步骤纳入重置流程的实际状态转换路径中。
+4. GestureSettings.vue 中主画布的手势绘制逻辑和重置弹窗的绘制逻辑是两套几乎完全平行的函数组，从触摸事件坐标计算、点位去重、线条构建到最少点数校验都是逐行复制的，造成了约 200 行重复代码。需要将绘制核心逻辑抽取为可复用的公共函数或 composable。
+5. 修复后需要确保 pnpm run test 全部通过。

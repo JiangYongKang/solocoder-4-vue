@@ -1,0 +1,7 @@
+你实现的用户认证系统页面还存在一些问题，需要进行修复：
+1. formValidation.js 中 validatePassword、validateCurrentPassword、validateNewPassword 三个函数内部存在永远不会被触发的死代码分支，需要清理。
+2. RegisterPage.vue 中确认密码输入框同时声明了动态 type 绑定和静态 type="password"，存在无意义的重复声明，需要删除多余的静态属性。
+3. ProfilePage.vue 中导入了 clearAuthState 函数，但在整个组件中从未被调用过，属于无效导入，需要移除。
+4. authState.js 中 generateToken 使用了 Math.random 生成 Token，这不是密码学安全的随机数生成方式，需要用更安全的随机源替代。
+5. AuthSystem.vue 通过动态组件向所有子页面传递了 token-expire-at 属性，但未登录页面组件（LoginPage、RegisterPage、ForgotPasswordPage）不需要接收 Token 过期时间，需要精确控制属性传递范围。
+6. 修复后需要确保 pnpm run test 全部通过。

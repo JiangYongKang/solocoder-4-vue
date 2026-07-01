@@ -1,12 +1,12 @@
 import {
-  TOKEN_STORAGE_KEY,
-  USER_STORAGE_KEY,
-  TOKEN_EXPIRE_KEY,
-  TOKEN_DURATION_MS,
-  PUBLIC_ROUTES,
-  PROTECTED_ROUTES,
-  AUTH_ROUTES,
-  ERROR_MESSAGES
+    AUTH_ROUTES,
+    ERROR_MESSAGES,
+    PROTECTED_ROUTES,
+    PUBLIC_ROUTES,
+    TOKEN_DURATION_MS,
+    TOKEN_EXPIRE_KEY,
+    TOKEN_STORAGE_KEY,
+    USER_STORAGE_KEY
 } from './constants.js'
 
 let token = null
@@ -83,8 +83,31 @@ export function initAuthState() {
   }
 }
 
+function secureRandomString(length) {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  const charsLen = chars.length
+
+  const globalCrypto = globalThis.crypto
+  if (globalCrypto && typeof globalCrypto.getRandomValues === 'function') {
+    try {
+      const values = new Uint32Array(length)
+      globalCrypto.getRandomValues(values)
+      for (let i = 0; i < length; i++) {
+        result += chars[values[i] % charsLen]
+      }
+      return result
+    } catch (e) {}
+  }
+
+  for (let i = 0; i < length; i++) {
+    result += chars[Math.floor(Math.random() * charsLen)]
+  }
+  return result
+}
+
 function generateToken() {
-  return 'tk_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 12)
+  return 'tk_' + Date.now().toString(36) + '_' + secureRandomString(12)
 }
 
 function hashPassword(password) {

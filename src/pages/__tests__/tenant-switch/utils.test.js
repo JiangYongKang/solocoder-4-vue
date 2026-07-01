@@ -1,16 +1,16 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  isSpaceExpired,
-  isSpaceActive,
-  sortSpaces,
-  setDefaultSpace,
-  getDefaultSpace,
-  updateLastAccessed,
-  getRecentAccessRecords,
-  formatDate,
-  getExpireStatus,
-  MEMBER_ROLES,
-  ROLE_LABELS
+    formatDate,
+    getDefaultSpace,
+    getExpireStatus,
+    getRecentAccessRecords,
+    isSpaceActive,
+    isSpaceExpired,
+    MEMBER_ROLES,
+    ROLE_LABELS,
+    setDefaultSpace,
+    sortSpaces,
+    updateLastAccessed
 } from '../../tenant-switch/utils.js'
 
 const createMockSpace = (overrides = {}) => ({

@@ -1,0 +1,6 @@
+你实现的用户成长等级页还存在一些问题，需要进行修复：
+1. GrowthLevel.vue 侧边栏的升级预估区块直接渲染了 upgradeEstimate.daysToUpgrade.days 的值，当用户近期没有经验记录导致 dailyExpRate 为 0 时，estimateDaysToUpgrade 函数返回的 days 为 Infinity，页面会直接显示"Infinity"这个原生 JS 值，而非使用 formatUpgradeEstimate 函数输出用户可读的文本。
+2. GrowthLevel.vue 中 handleTaskAction 函数在用户点击领取任务奖励时直接执行 addExp 和修改 claimedAt，整个过程没有设置任何领取锁或防重复提交机制。如果用户因界面卡顿快速双击按钮，可能在同一任务上触发两次经验添加。
+3. GrowthLevel.vue 中硬编码的经验记录数据里，扣减记录和系统调整记录的描述仅为"违规扣除"和"系统调整-经验补回"，没有附带具体的违规类型、规则引用或调整理由，用户无法理解经验变化的真实原因。
+4. GrowthLevel.vue 仅为权益设置了主动过期提醒，但对于同样设有 expiresAt 字段的任务，没有任何集中式的即将过期提醒入口或主动通知，这种不对称处理可能导致用户忽略即将到期的任务奖励。
+5. 修复后需要确保 pnpm run test 全部通过。

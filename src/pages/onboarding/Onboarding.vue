@@ -345,20 +345,29 @@
       </main>
 
       <footer v-if="!isTerminalStep" class="action-footer">
-        <button
-          v-if="canGoPrevious"
-          class="action-btn btn-secondary"
-          @click="handlePrevious"
-        >
-          ← 返回
-        </button>
-        <button
-          v-else
-          class="action-btn btn-ghost"
-          disabled
-        >
-          已是第一步
-        </button>
+        <div class="footer-left-group">
+          <button
+            v-if="hasReturnContext"
+            class="action-btn btn-outline"
+            @click="handleReturnToConfirmation"
+          >
+            ↩️ 返回确认页
+          </button>
+          <button
+            v-if="canGoPrevious"
+            class="action-btn btn-secondary"
+            @click="handlePrevious"
+          >
+            ← 返回
+          </button>
+          <button
+            v-if="!canGoPrevious && !hasReturnContext"
+            class="action-btn btn-ghost"
+            disabled
+          >
+            已是第一步
+          </button>
+        </div>
 
         <div class="footer-spacer"></div>
 
@@ -367,7 +376,7 @@
           class="action-btn btn-primary"
           @click="handleNext"
         >
-          {{ isLastStep ? '确认并完成' : '下一步' }} →
+          {{ hasReturnContext ? (isLastStep ? '确认并完成' : '保存并返回确认页') : (isLastStep ? '确认并完成' : '下一步') }} →
         </button>
       </footer>
 
@@ -455,7 +464,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import {
   ONBOARDING_STEPS,
   STEP_LABELS,
@@ -472,8 +481,8 @@ import {
   isTerminalStep as checkIsTerminal,
   getProgress,
   getVisibleSteps,
-  skipOnboarding,
-  completeOnboarding
+  completeOnboarding,
+  getStepIndex
 } from './stepFlow.js'
 import {
   createDefaultPreferences,
@@ -485,7 +494,8 @@ import {
   getSkippedStateInfo,
   canSkip,
   confirmSkip,
-  cancelSkip
+  cancelSkip,
+  executeSkip
 } from './skipConfirmation.js'
 import {
   getCompletionRewards,
@@ -499,15 +509,42 @@ import {
   getTaskProgress
 } from './completionReward.js'
 
+const props = defineProps({
+  initialStep: {
+    type: String,
+    default: ONBOARDING_STEPS.WELCOME
+  },
+  initialPreferences: {
+    type: Object,
+    default: null
+  },
+  storageKey: {
+    type: String,
+    default: 'solocoder_onboarding_state'
+  }
+})
+
+const emit = defineEmits([
+  'complete',
+  'skip',
+  'preferences-change',
+  'enter-system',
+  'task-start',
+  'task-complete'
+])
+
 const stepLabels = STEP_LABELS
 const themeOptions = THEME_OPTIONS
 const languageOptions = LANGUAGE_OPTIONS
 const notificationOptions = NOTIFICATION_OPTIONS
 
-const currentStep = ref(ONBOARDING_STEPS.WELCOME)
-const preferences = ref(createDefaultPreferences())
+const currentStep = ref(props.initialStep)
+const preferences = ref(props.initialPreferences || createDefaultPreferences())
 const showSkipDialog = ref(false)
 const taskStatuses = ref(getRecommendedTasksWithStatus())
+const visitedSteps = ref(new Set([ONBOARDING_STEPS.WELCOME]))
+const returnToStep = ref(null)
+const isEnteringSystem = ref(false)
 
 const visibleSteps = computed(() => getVisibleSteps())
 const isTerminalStep = computed(() => checkIsTerminal(currentStep.value))
@@ -517,6 +554,9 @@ const isLastStep = computed(() => checkIsLastStep(currentStep.value))
 const progress = computed(() => getProgress(currentStep.value))
 const showSkipButton = computed(() =>
   !isTerminalStep.value && currentStep.value !== ONBOARDING_STEPS.CONFIRMATION
+)
+const hasReturnContext = computed(() =>
+  returnToStep.value !== null && !isTerminalStep.value
 )
 
 const summary = computed(() => generatePreferenceSummary(preferences.value))
@@ -528,38 +568,92 @@ const sortedTasks = computed(() => sortTasksByPriority(taskStatuses.value))
 const taskProgress = computed(() => getTaskProgress(taskStatuses.value))
 
 function isStepCompleted(step) {
-  const visible = visibleSteps.value
-  const stepIndex = visible.indexOf(step)
-  const currentIndex = visible.indexOf(currentStep.value)
-  return stepIndex < currentIndex
+  if (visitedSteps.value.has(step)) {
+    const stepIndex = getStepIndex(step)
+    const currentIndex = getStepIndex(currentStep.value)
+    if (currentIndex === -1) return true
+    if (stepIndex < currentIndex) return true
+    if (step === currentStep.value) return false
+  }
+  return false
+}
+
+function markStepVisited(step) {
+  if (getStepIndex(step) !== -1) {
+    visitedSteps.value = new Set([...visitedSteps.value, step])
+  }
 }
 
 function updatePref(key, value) {
   preferences.value = updatePreference(preferences.value, key, value)
+  emit('preferences-change', preferences.value)
+  saveStateToStorage()
 }
 
 function toggleExampleData(event) {
   preferences.value = updatePreference(preferences.value, 'enableExampleData', event.target.checked)
+  emit('preferences-change', preferences.value)
+  saveStateToStorage()
 }
 
 function handleNext() {
   if (isLastStep.value) {
     const result = completeOnboarding(currentStep.value)
     if (result.success) {
+      markStepVisited(currentStep.value)
       currentStep.value = result.currentStep
+      returnToStep.value = null
+      emit('complete', {
+        preferences: preferences.value,
+        completedAt: result.completedAt
+      })
+      saveStateToStorage()
     }
   } else {
+    if (hasReturnContext.value) {
+      const currentIndex = getStepIndex(currentStep.value)
+      const returnIndex = getStepIndex(returnToStep.value)
+      if (currentIndex !== -1 && returnIndex !== -1 && currentIndex + 1 >= returnIndex) {
+        markStepVisited(currentStep.value)
+        markStepVisited(returnToStep.value)
+        currentStep.value = returnToStep.value
+        returnToStep.value = null
+        saveStateToStorage()
+        return
+      }
+    }
     const result = advanceStep(currentStep.value)
     if (result.success) {
+      markStepVisited(result.currentStep)
       currentStep.value = result.currentStep
+      saveStateToStorage()
     }
   }
 }
 
+function handleReturnToConfirmation() {
+  if (hasReturnContext.value) {
+    markStepVisited(currentStep.value)
+    markStepVisited(returnToStep.value)
+    const target = returnToStep.value
+    returnToStep.value = null
+    currentStep.value = target
+    saveStateToStorage()
+  }
+}
+
 function handlePrevious() {
+  if (hasReturnContext.value && currentStep.value === ONBOARDING_STEPS.PREFERENCES) {
+    markStepVisited(returnToStep.value)
+    currentStep.value = returnToStep.value
+    returnToStep.value = null
+    saveStateToStorage()
+    return
+  }
   const result = goBackStep(currentStep.value)
   if (result.success) {
     currentStep.value = result.currentStep
+    saveStateToStorage()
   }
 }
 
@@ -571,8 +665,11 @@ function goEdit(key) {
     enableExampleData: ONBOARDING_STEPS.EXAMPLE_DATA
   }
   const target = targetSteps[key]
-  if (target) {
+  if (target && currentStep.value === ONBOARDING_STEPS.CONFIRMATION) {
+    returnToStep.value = ONBOARDING_STEPS.CONFIRMATION
+    markStepVisited(currentStep.value)
     currentStep.value = target
+    saveStateToStorage()
   }
 }
 
@@ -588,12 +685,16 @@ function cancelSkipDialog() {
 }
 
 function confirmSkipAction() {
-  const result = confirmSkip(currentStep.value)
+  const result = executeSkip(currentStep.value)
   if (result.success) {
-    const skipResult = skipOnboarding(currentStep.value)
-    if (skipResult.success) {
-      currentStep.value = skipResult.currentStep
-    }
+    currentStep.value = result.currentStep
+    returnToStep.value = null
+    emit('skip', {
+      skippedAt: result.skippedAt,
+      remainingSteps: result.remainingSteps,
+      preferences: preferences.value
+    })
+    saveStateToStorage()
   }
   showSkipDialog.value = false
 }
@@ -603,11 +704,13 @@ function handleTaskClick(task) {
     const result = startTask(taskStatuses.value, task.id)
     if (result.success) {
       taskStatuses.value = result.tasks
+      emit('task-start', result.task)
     }
   } else if (task.status === 'in_progress') {
     const result = completeTask(taskStatuses.value, task.id)
     if (result.success) {
       taskStatuses.value = result.tasks
+      emit('task-complete', result.task)
     }
   }
 }
@@ -615,11 +718,81 @@ function handleTaskClick(task) {
 function handleRestart() {
   currentStep.value = ONBOARDING_STEPS.WELCOME
   taskStatuses.value = getRecommendedTasksWithStatus()
+  visitedSteps.value = new Set([ONBOARDING_STEPS.WELCOME])
+  returnToStep.value = null
+  saveStateToStorage()
+}
+
+function saveStateToStorage() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const state = {
+        currentStep: currentStep.value,
+        preferences: preferences.value,
+        visitedSteps: [...visitedSteps.value],
+        returnToStep: returnToStep.value,
+        savedAt: new Date().toISOString()
+      }
+      localStorage.setItem(props.storageKey, JSON.stringify(state))
+    }
+  } catch (e) {
+  }
+}
+
+function loadStateFromStorage() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(props.storageKey)
+      if (raw) {
+        const state = JSON.parse(raw)
+        if (state.visitedSteps && Array.isArray(state.visitedSteps)) {
+          visitedSteps.value = new Set(state.visitedSteps)
+        }
+        if (state.returnToStep) {
+          returnToStep.value = state.returnToStep
+        }
+      }
+    }
+  } catch (e) {
+  }
 }
 
 function handleEnterSystem() {
-  console.log('进入系统')
+  if (isEnteringSystem.value) return
+  isEnteringSystem.value = true
+  try {
+    const finalState = {
+      finished: true,
+      status: currentStep.value === ONBOARDING_STEPS.COMPLETED ? 'completed' : 'skipped',
+      preferences: preferences.value,
+      taskProgress: getTaskProgress(taskStatuses.value),
+      finishedAt: new Date().toISOString()
+    }
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(props.storageKey + '_finished', JSON.stringify(finalState))
+      }
+    } catch (e) {
+    }
+    emit('enter-system', finalState)
+    const evt = new CustomEvent('onboarding:enter-system', {
+      detail: finalState
+    })
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(evt)
+    }
+  } finally {
+    isEnteringSystem.value = false
+  }
 }
+
+watch(currentStep, (newStep) => {
+  saveStateToStorage()
+})
+
+onMounted(() => {
+  loadStateFromStorage()
+})
 </script>
 
 <style scoped>
@@ -1742,6 +1915,25 @@ function handleEnterSystem() {
   background: #dc2626;
 }
 
+.btn-outline {
+  background: transparent;
+  color: #8b5cf6;
+  border: 1px solid #8b5cf6;
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: #f5f3ff;
+  border-color: #7c3aed;
+  color: #7c3aed;
+}
+
+.footer-left-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -2253,11 +2445,34 @@ function handleEnterSystem() {
   .action-footer {
     padding: 12px 16px;
     gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .footer-left-group {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .footer-left-group .action-btn {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .action-footer .footer-spacer {
+    display: none;
+  }
+
+  .action-footer > .btn-primary {
+    flex: 1;
+    justify-content: center;
   }
 
   .action-btn {
-    padding: 10px 20px;
-    font-size: 13px;
+    padding: 10px 16px;
+    font-size: 12px;
   }
 
   .modal-actions {

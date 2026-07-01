@@ -1,5 +1,23 @@
 import { ONBOARDING_STEPS, STEP_ORDER } from './constants.js'
 
+export function executeSkip(currentStep) {
+  if (!canSkip(currentStep)) {
+    return {
+      success: false,
+      currentStep,
+      error: '当前状态无法跳过引导'
+    }
+  }
+  return {
+    success: true,
+    currentStep: ONBOARDING_STEPS.SKIPPED,
+    previousStep: currentStep,
+    skipped: true,
+    skippedAt: new Date().toISOString(),
+    remainingSteps: getRemainingSteps(currentStep)
+  }
+}
+
 export function canSkip(currentStep) {
   if (currentStep === ONBOARDING_STEPS.COMPLETED ||
       currentStep === ONBOARDING_STEPS.SKIPPED) {

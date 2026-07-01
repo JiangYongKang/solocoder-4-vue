@@ -1,23 +1,23 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  createDefaultPreferences,
-  isValidTheme,
-  isValidLanguage,
-  isValidNotification,
-  isValidPreferences,
-  updatePreference,
-  getThemeLabel,
-  getLanguageLabel,
-  getNotificationLabel,
-  getExampleDataLabel,
-  generatePreferenceSummary,
-  getChangedSummary
-} from '../../onboarding/preferenceSummary.js'
-import {
-  PREFERENCE_THEMES,
-  PREFERENCE_LANGUAGES,
-  PREFERENCE_NOTIFICATIONS
+    PREFERENCE_LANGUAGES,
+    PREFERENCE_NOTIFICATIONS,
+    PREFERENCE_THEMES
 } from '../../onboarding/constants.js'
+import {
+    createDefaultPreferences,
+    generatePreferenceSummary,
+    getChangedSummary,
+    getExampleDataLabel,
+    getLanguageLabel,
+    getNotificationLabel,
+    getThemeLabel,
+    isValidLanguage,
+    isValidNotification,
+    isValidPreferences,
+    isValidTheme,
+    updatePreference
+} from '../../onboarding/preferenceSummary.js'
 
 describe('preferenceSummary', () => {
   describe('createDefaultPreferences', () => {

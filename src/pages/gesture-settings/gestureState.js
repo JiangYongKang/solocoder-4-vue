@@ -1,4 +1,11 @@
-import { GESTURE_STATUS, GESTURE_STEP, MAX_ERRORS, LOCK_DURATION } from './constants.js'
+import {
+  GESTURE_STATUS,
+  GESTURE_STEP,
+  MAX_ERRORS,
+  LOCK_DURATION,
+  GESTURE_STATUS_LABELS,
+  GESTURE_STEP_LABELS
+} from './constants.js'
 import {
   validateGesture,
   matchGestures,
@@ -217,12 +224,30 @@ export function unlockAfterLock(currentStatus, lockStartTime, lockDuration = LOC
   })
 }
 
-export function startReset(currentStatus, savedGesture, points, errorCount) {
+export function enterResetStep(currentStatus) {
   if (currentStatus !== GESTURE_STATUS.SET) {
     return {
       success: false,
       currentStatus,
       step: GESTURE_STEP.IDLE,
+      error: '当前状态不允许重置手势'
+    }
+  }
+
+  return {
+    success: true,
+    currentStatus,
+    step: GESTURE_STEP.RESET,
+    message: '请验证原手势以重置'
+  }
+}
+
+export function startReset(currentStatus, currentStep, savedGesture, points, errorCount) {
+  if (currentStatus !== GESTURE_STATUS.SET || currentStep !== GESTURE_STEP.RESET) {
+    return {
+      success: false,
+      currentStatus,
+      step: currentStep,
       error: '当前状态不允许重置手势'
     }
   }
@@ -239,7 +264,7 @@ export function startReset(currentStatus, savedGesture, points, errorCount) {
   })
 }
 
-export function cancelReset(currentStatus) {
+export function cancelReset(currentStatus, currentStep) {
   if (currentStatus === GESTURE_STATUS.DRAWING || currentStatus === GESTURE_STATUS.CONFIRMING) {
     return transitionStatus(currentStatus, GESTURE_STATUS.SET, {
       step: GESTURE_STEP.IDLE,
@@ -248,10 +273,20 @@ export function cancelReset(currentStatus) {
     })
   }
 
+  if (currentStatus === GESTURE_STATUS.SET && currentStep === GESTURE_STEP.RESET) {
+    return {
+      success: true,
+      currentStatus,
+      step: GESTURE_STEP.IDLE,
+      firstGesture: null,
+      message: '已取消重置'
+    }
+  }
+
   return {
     success: false,
     currentStatus,
-    step: GESTURE_STEP.IDLE,
+    step: currentStep,
     error: '当前状态不支持取消操作'
   }
 }
@@ -283,26 +318,11 @@ export function toggleGesture(isEnabled, currentStatus, currentState) {
 }
 
 export function getStatusLabel(status) {
-  const labels = {
-    [GESTURE_STATUS.OFF]: '未开启',
-    [GESTURE_STATUS.DRAWING]: '绘制中',
-    [GESTURE_STATUS.CONFIRMING]: '确认中',
-    [GESTURE_STATUS.SET]: '已设置',
-    [GESTURE_STATUS.VERIFYING]: '验证中',
-    [GESTURE_STATUS.LOCKED]: '已锁定'
-  }
-  return labels[status] || '未知状态'
+  return GESTURE_STATUS_LABELS[status] || '未知状态'
 }
 
 export function getStepLabel(step) {
-  const labels = {
-    [GESTURE_STEP.IDLE]: '请绘制手势密码',
-    [GESTURE_STEP.FIRST_DRAW]: '请绘制新手势',
-    [GESTURE_STEP.SECOND_DRAW]: '请再次绘制手势',
-    [GESTURE_STEP.VERIFY]: '请验证手势密码',
-    [GESTURE_STEP.RESET]: '请验证原手势以重置'
-  }
-  return labels[step] || ''
+  return GESTURE_STEP_LABELS[step] || ''
 }
 
 export function getInitialState() {

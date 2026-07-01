@@ -1,29 +1,30 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { DEVICE_AUTH_STATUS, RISK_LEVELS, DEFAULT_QR_TIMEOUT } from '../../device-authorization/constants.js'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  canTransition,
-  getNextPossibleTransitions,
-  transitionStatus,
-  isTerminalStatus,
-  canConfirm,
-  canReject,
-  canRefresh,
-  markAsScanned,
-  confirmAuthorization,
-  rejectAuthorization,
-  markAsTimeout,
-  markAsRisk,
-  refreshAuthorization,
-  generateRequestId,
-  createCountdownManager,
-  getRiskLevelColor,
-  shouldShowRiskWarning,
-  getHighRiskAdvice,
-  getStatusDescription,
-  getStatusIcon,
-  getStatusColor,
-  hasDeviceInfo
+    canConfirm,
+    canRefresh,
+    canReject,
+    canTransition,
+    confirmAuthorization,
+    createAuthorizationManager,
+    createCountdownManager,
+    generateRequestId,
+    getHighRiskAdvice,
+    getNextPossibleTransitions,
+    getRiskLevelColor,
+    getStatusColor,
+    getStatusDescription,
+    getStatusIcon,
+    hasDeviceInfo,
+    isTerminalStatus,
+    markAsRisk,
+    markAsScanned,
+    markAsTimeout,
+    refreshAuthorization,
+    rejectAuthorization,
+    shouldShowRiskWarning,
+    transitionStatus
 } from '../../device-authorization/authorizationState.js'
+import { DEFAULT_QR_TIMEOUT, DEVICE_AUTH_STATUS, RISK_LEVELS } from '../../device-authorization/constants.js'
 
 const PENDING_SCAN = DEVICE_AUTH_STATUS.PENDING_SCAN
 const SCANNED_PENDING = DEVICE_AUTH_STATUS.SCANNED_PENDING
@@ -33,6 +34,16 @@ const TIMEOUT = DEVICE_AUTH_STATUS.TIMEOUT
 const RISK = DEVICE_AUTH_STATUS.RISK
 
 describe('authorizationState - 状态流转', () => {
+  describe('VALID_TRANSITIONS 状态机一致性', () => {
+    it('should allow PENDING_SCAN -> PENDING_SCAN (self-transition for refresh)', () => {
+      expect(canTransition(PENDING_SCAN, PENDING_SCAN)).toBe(true)
+    })
+
+    it('should allow RISK -> RISK (self-transition for scan with risk)', () => {
+      expect(canTransition(RISK, RISK)).toBe(true)
+    })
+  })
+
   describe('canTransition', () => {
     it('should allow transition from PENDING_SCAN to SCANNED_PENDING', () => {
       expect(canTransition(PENDING_SCAN, SCANNED_PENDING)).toBe(true)
@@ -102,12 +113,22 @@ describe('authorizationState - 状态流转', () => {
   })
 
   describe('getNextPossibleTransitions', () => {
-    it('should return SCANNED_PENDING, TIMEOUT, RISK for PENDING_SCAN', () => {
+    it('should include PENDING_SCAN itself for PENDING_SCAN', () => {
       const transitions = getNextPossibleTransitions(PENDING_SCAN)
+      expect(transitions).toContain(PENDING_SCAN)
       expect(transitions).toContain(SCANNED_PENDING)
       expect(transitions).toContain(TIMEOUT)
       expect(transitions).toContain(RISK)
-      expect(transitions).toHaveLength(3)
+      expect(transitions).toHaveLength(4)
+    })
+
+    it('should include RISK itself for RISK', () => {
+      const transitions = getNextPossibleTransitions(RISK)
+      expect(transitions).toContain(RISK)
+      expect(transitions).toContain(AUTHORIZED)
+      expect(transitions).toContain(REJECTED)
+      expect(transitions).toContain(TIMEOUT)
+      expect(transitions).toHaveLength(4)
     })
 
     it('should return AUTHORIZED, REJECTED, TIMEOUT, RISK for SCANNED_PENDING', () => {
@@ -161,19 +182,33 @@ describe('authorizationState - 状态流转', () => {
       const result = transitionStatus(PENDING_SCAN, TIMEOUT)
       expect(result.transitionedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
     })
+
+    it('should allow self-transition PENDING_SCAN -> PENDING_SCAN via transitionStatus', () => {
+      const result = transitionStatus(PENDING_SCAN, PENDING_SCAN, { refreshed: true })
+      expect(result.success).toBe(true)
+      expect(result.newStatus).toBe(PENDING_SCAN)
+      expect(result.refreshed).toBe(true)
+    })
+
+    it('should allow self-transition RISK -> RISK via transitionStatus', () => {
+      const result = transitionStatus(RISK, RISK, { deviceInfo: { name: 'risky' } })
+      expect(result.success).toBe(true)
+      expect(result.newStatus).toBe(RISK)
+      expect(result.deviceInfo.name).toBe('risky')
+    })
   })
 
-  describe('isTerminalStatus', () => {
-    it('should return true for AUTHORIZED', () => {
+  describe('isTerminalStatus - TIMEOUT 语义修复', () => {
+    it('should return true for AUTHORIZED (真正的终态)', () => {
       expect(isTerminalStatus(AUTHORIZED)).toBe(true)
     })
 
-    it('should return true for REJECTED', () => {
+    it('should return true for REJECTED (真正的终态)', () => {
       expect(isTerminalStatus(REJECTED)).toBe(true)
     })
 
-    it('should return true for TIMEOUT', () => {
-      expect(isTerminalStatus(TIMEOUT)).toBe(true)
+    it('should return false for TIMEOUT (可刷新，不是终态)', () => {
+      expect(isTerminalStatus(TIMEOUT)).toBe(false)
     })
 
     it('should return false for PENDING_SCAN', () => {
@@ -218,8 +253,8 @@ describe('authorizationState - 状态流转', () => {
   })
 })
 
-describe('authorizationState - 操作函数', () => {
-  describe('markAsScanned', () => {
+describe('authorizationState - 纯函数操作（向后兼容）', () => {
+  describe('markAsScanned - 不再硬编码绕过状态机', () => {
     it('should transition from PENDING_SCAN to SCANNED_PENDING with device info', () => {
       const deviceInfo = { name: 'iPhone 15', type: 'mobile' }
       const result = markAsScanned(PENDING_SCAN, deviceInfo)
@@ -228,7 +263,7 @@ describe('authorizationState - 操作函数', () => {
       expect(result.deviceInfo).toEqual(deviceInfo)
     })
 
-    it('should preserve RISK status if already in RISK', () => {
+    it('should preserve RISK status if already in RISK (via transitionStatus, 不再硬编码)', () => {
       const deviceInfo = { name: 'Risky Device' }
       const result = markAsScanned(RISK, deviceInfo)
       expect(result.success).toBe(true)
@@ -250,7 +285,7 @@ describe('authorizationState - 操作函数', () => {
     })
   })
 
-  describe('confirmAuthorization - 重复提交限制', () => {
+  describe('confirmAuthorization - 保留外部 hasConfirmed 参数（向后兼容）', () => {
     it('should confirm from SCANNED_PENDING to AUTHORIZED successfully', () => {
       const result = confirmAuthorization(SCANNED_PENDING)
       expect(result.success).toBe(true)
@@ -289,7 +324,7 @@ describe('authorizationState - 操作函数', () => {
     })
   })
 
-  describe('rejectAuthorization - 重复提交限制', () => {
+  describe('rejectAuthorization - 保留外部 hasConfirmed 参数（向后兼容）', () => {
     it('should reject from SCANNED_PENDING to REJECTED with default reason', () => {
       const result = rejectAuthorization(SCANNED_PENDING)
       expect(result.success).toBe(true)
@@ -329,7 +364,7 @@ describe('authorizationState - 操作函数', () => {
     })
   })
 
-  describe('markAsTimeout - 倒计时失效', () => {
+  describe('markAsTimeout - 不再将 TIMEOUT 视为终态', () => {
     it('should mark PENDING_SCAN as TIMEOUT', () => {
       const result = markAsTimeout(PENDING_SCAN)
       expect(result.success).toBe(true)
@@ -348,6 +383,12 @@ describe('authorizationState - 操作函数', () => {
       expect(result.newStatus).toBe(TIMEOUT)
     })
 
+    it('should fail to mark TIMEOUT as TIMEOUT (无意义的重复操作)', () => {
+      const result = markAsTimeout(TIMEOUT)
+      expect(result.success).toBe(false)
+      expect(result.newStatus).toBe(TIMEOUT)
+    })
+
     it('should NOT mark AUTHORIZED (terminal) as TIMEOUT', () => {
       const result = markAsTimeout(AUTHORIZED)
       expect(result.success).toBe(false)
@@ -358,12 +399,6 @@ describe('authorizationState - 操作函数', () => {
     it('should NOT mark REJECTED (terminal) as TIMEOUT', () => {
       const result = markAsTimeout(REJECTED)
       expect(result.success).toBe(false)
-    })
-
-    it('should NOT mark TIMEOUT (terminal) as TIMEOUT again', () => {
-      const result = markAsTimeout(TIMEOUT)
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('已结束')
     })
   })
 
@@ -389,7 +424,7 @@ describe('authorizationState - 操作函数', () => {
     })
   })
 
-  describe('refreshAuthorization', () => {
+  describe('refreshAuthorization - 不再硬编码绕过状态机', () => {
     it('should refresh from TIMEOUT to PENDING_SCAN with new request ID', () => {
       const result = refreshAuthorization(TIMEOUT)
       expect(result.success).toBe(true)
@@ -399,7 +434,7 @@ describe('authorizationState - 操作函数', () => {
       expect(result.refreshedAt).toBeDefined()
     })
 
-    it('should refresh from PENDING_SCAN (refresh current)', () => {
+    it('should refresh from PENDING_SCAN (refresh current, via transitionStatus)', () => {
       const result = refreshAuthorization(PENDING_SCAN)
       expect(result.success).toBe(true)
       expect(result.newStatus).toBe(PENDING_SCAN)
@@ -419,6 +454,12 @@ describe('authorizationState - 操作函数', () => {
     it('should fail to refresh from REJECTED', () => {
       const result = refreshAuthorization(REJECTED)
       expect(result.success).toBe(false)
+    })
+
+    it('should always generate unique newRequestId', () => {
+      const ids = Array.from({ length: 50 }, () => refreshAuthorization(TIMEOUT).newRequestId)
+      const uniqueIds = new Set(ids)
+      expect(uniqueIds.size).toBe(50)
     })
   })
 
@@ -441,6 +482,283 @@ describe('authorizationState - 操作函数', () => {
       const timestamp = parseInt(parts[1], 10)
       expect(timestamp).toBeGreaterThanOrEqual(before)
       expect(timestamp).toBeLessThanOrEqual(Date.now() + 1000)
+    })
+  })
+})
+
+describe('authorizationState - createAuthorizationManager 有状态管理器（防重复提交内聚化）', () => {
+  describe('初始化', () => {
+    it('should initialize with PENDING_SCAN status by default', () => {
+      const manager = createAuthorizationManager()
+      expect(manager.getStatus()).toBe(PENDING_SCAN)
+      expect(manager.isConfirmed()).toBe(false)
+      expect(manager.isRejected()).toBe(false)
+      expect(manager.isOperationDone()).toBe(false)
+      expect(manager.getRiskLevel()).toBeNull()
+    })
+
+    it('should allow custom initial status', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      expect(manager.getStatus()).toBe(SCANNED_PENDING)
+    })
+
+    it('should generate unique request ID per manager instance', () => {
+      const m1 = createAuthorizationManager()
+      const m2 = createAuthorizationManager()
+      expect(m1.getRequestId()).not.toBe(m2.getRequestId())
+      expect(m1.getRequestId().startsWith('AUTH_')).toBe(true)
+    })
+  })
+
+  describe('markAsScanned', () => {
+    it('should transition to SCANNED_PENDING for normal scan', () => {
+      const manager = createAuthorizationManager()
+      const deviceInfo = { name: 'MacBook' }
+      const result = manager.markAsScanned(deviceInfo)
+
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(SCANNED_PENDING)
+      expect(manager.getDeviceInfo()).toEqual(deviceInfo)
+    })
+
+    it('should transition to RISK when isRisk flag is true', () => {
+      const manager = createAuthorizationManager()
+      const deviceInfo = { name: 'Unknown Device' }
+      const result = manager.markAsScanned(deviceInfo, true)
+
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(RISK)
+      expect(manager.getRiskLevel()).toBe(RISK_LEVELS.HIGH)
+    })
+
+    it('should stay in RISK if already in RISK when scanning normal device', () => {
+      const manager = createAuthorizationManager(RISK)
+      const deviceInfo = { name: 'Risky Device' }
+      const result = manager.markAsScanned(deviceInfo, false)
+
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(RISK)
+    })
+
+    it('should block scanning after operation is done', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      manager.confirm()
+      expect(manager.isOperationDone()).toBe(true)
+
+      const result = manager.markAsScanned({ name: 'another' })
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('操作已完成')
+    })
+  })
+
+  describe('confirm - 内部维护防重复提交', () => {
+    it('should confirm from SCANNED_PENDING to AUTHORIZED', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      const result = manager.confirm()
+
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(AUTHORIZED)
+      expect(manager.isConfirmed()).toBe(true)
+      expect(manager.isOperationDone()).toBe(true)
+      expect(manager.getTimestamps().confirmedAt).toBeDefined()
+    })
+
+    it('should confirm from RISK to AUTHORIZED', () => {
+      const manager = createAuthorizationManager(RISK)
+      const result = manager.confirm()
+
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(AUTHORIZED)
+    })
+
+    it('should BLOCK duplicate confirm (内部维护 hasConfirmed，不依赖外部传参)', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      manager.confirm()
+
+      const result = manager.confirm()
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('重复提交')
+      expect(result.error).toContain('操作已执行')
+    })
+
+    it('should BLOCK confirm after rejected (互斥)', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      manager.reject()
+
+      const result = manager.confirm()
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('已拒绝授权')
+    })
+
+    it('should BLOCK confirm from invalid status', () => {
+      const manager = createAuthorizationManager(PENDING_SCAN)
+      const result = manager.confirm()
+      expect(result.success).toBe(false)
+    })
+  })
+
+  describe('reject - 内部维护防重复提交', () => {
+    it('should reject from SCANNED_PENDING to REJECTED with reason', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      const reason = '不是我操作的'
+      const result = manager.reject(reason)
+
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(REJECTED)
+      expect(manager.isRejected()).toBe(true)
+      expect(manager.isOperationDone()).toBe(true)
+      expect(manager.getRejectReason()).toBe(reason)
+      expect(manager.getTimestamps().rejectedAt).toBeDefined()
+    })
+
+    it('should use default reason if not provided', () => {
+      const manager = createAuthorizationManager(RISK)
+      manager.reject()
+      expect(manager.getRejectReason()).toBe('用户拒绝授权')
+    })
+
+    it('should BLOCK duplicate reject (内部维护 hasRejected)', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      manager.reject()
+
+      const result = manager.reject('again')
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('重复提交')
+    })
+
+    it('should BLOCK reject after confirmed (互斥)', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      manager.confirm()
+
+      const result = manager.reject()
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('已确认授权')
+    })
+
+    it('should BLOCK reject from invalid status', () => {
+      const manager = createAuthorizationManager(PENDING_SCAN)
+      const result = manager.reject()
+      expect(result.success).toBe(false)
+    })
+  })
+
+  describe('markAsTimeout', () => {
+    it('should mark as TIMEOUT from PENDING_SCAN', () => {
+      const manager = createAuthorizationManager()
+      const result = manager.markAsTimeout()
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(TIMEOUT)
+    })
+
+    it('should NOT mark as TIMEOUT after operation done', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      manager.confirm()
+
+      const result = manager.markAsTimeout()
+      expect(result.success).toBe(false)
+    })
+  })
+
+  describe('refresh - 重置所有状态', () => {
+    it('should refresh from TIMEOUT to PENDING_SCAN and reset all state', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      manager.markAsScanned({ name: 'iPhone' }, true)
+      manager.markAsTimeout()
+      expect(manager.getStatus()).toBe(TIMEOUT)
+
+      const oldRequestId = manager.getRequestId()
+      const result = manager.refresh()
+
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(PENDING_SCAN)
+      expect(manager.isConfirmed()).toBe(false)
+      expect(manager.isRejected()).toBe(false)
+      expect(manager.isOperationDone()).toBe(false)
+      expect(manager.getDeviceInfo()).toEqual({})
+      expect(manager.getRiskData()).toBeNull()
+      expect(manager.getRiskLevel()).toBeNull()
+      expect(manager.getRejectReason()).toBe('')
+      expect(manager.getRequestId()).not.toBe(oldRequestId)
+      expect(manager.getTimestamps().lastRefreshedAt).toBeDefined()
+    })
+
+    it('should refresh from PENDING_SCAN to PENDING_SCAN with new ID', () => {
+      const manager = createAuthorizationManager()
+      const oldRequestId = manager.getRequestId()
+
+      const result = manager.refresh()
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(PENDING_SCAN)
+      expect(manager.getRequestId()).not.toBe(oldRequestId)
+    })
+
+    it('should fail to refresh from SCANNED_PENDING', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      const result = manager.refresh()
+      expect(result.success).toBe(false)
+    })
+  })
+
+  describe('markAsRisk', () => {
+    it('should mark as RISK and set default HIGH risk level', () => {
+      const manager = createAuthorizationManager()
+      const riskData = { riskReasons: ['异常地点'] }
+      const result = manager.markAsRisk(riskData)
+
+      expect(result.success).toBe(true)
+      expect(manager.getStatus()).toBe(RISK)
+      expect(manager.getRiskLevel()).toBe(RISK_LEVELS.HIGH)
+      expect(manager.getRiskData().riskReasons).toEqual(['异常地点'])
+    })
+
+    it('should preserve custom risk level if provided', () => {
+      const manager = createAuthorizationManager()
+      const riskData = { riskLevel: RISK_LEVELS.MEDIUM, riskReasons: ['新设备'] }
+      manager.markAsRisk(riskData)
+      expect(manager.getRiskLevel()).toBe(RISK_LEVELS.MEDIUM)
+    })
+
+    it('should BLOCK markAsRisk after operation done', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      manager.reject()
+      const result = manager.markAsRisk()
+      expect(result.success).toBe(false)
+    })
+  })
+
+  describe('getRiskLevel - 默认风险级别', () => {
+    it('should return HIGH by default in RISK status when no riskLevel set', () => {
+      const manager = createAuthorizationManager(RISK)
+      expect(manager.getRiskLevel()).toBe(RISK_LEVELS.HIGH)
+    })
+
+    it('should return null when not in RISK status', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      expect(manager.getRiskLevel()).toBeNull()
+    })
+
+    it('should return custom level if set via markAsRisk', () => {
+      const manager = createAuthorizationManager()
+      manager.markAsRisk({ riskLevel: RISK_LEVELS.LOW })
+      expect(manager.getRiskLevel()).toBe(RISK_LEVELS.LOW)
+    })
+  })
+
+  describe('toJSON - 完整状态快照', () => {
+    it('should return complete state snapshot', () => {
+      const manager = createAuthorizationManager(SCANNED_PENDING)
+      manager.markAsScanned({ name: 'iPhone' })
+      manager.reject('测试拒绝')
+
+      const snapshot = manager.toJSON()
+      expect(snapshot.status).toBe(REJECTED)
+      expect(snapshot.hasConfirmed).toBe(false)
+      expect(snapshot.hasRejected).toBe(true)
+      expect(snapshot.isOperationDone).toBe(true)
+      expect(snapshot.deviceInfo.name).toBe('iPhone')
+      expect(snapshot.requestId).toBeDefined()
+      expect(snapshot.rejectReason).toBe('测试拒绝')
+      expect(snapshot.timestamps.rejectedAt).toBeDefined()
     })
   })
 })
@@ -627,7 +945,7 @@ describe('authorizationState - 风险提示', () => {
     })
   })
 
-  describe('getHighRiskAdvice', () => {
+  describe('getHighRiskAdvice - 默认风险级别修复', () => {
     it('should return array of advice for LOW risk', () => {
       const advice = getHighRiskAdvice(RISK_LEVELS.LOW)
       expect(Array.isArray(advice)).toBe(true)
@@ -652,7 +970,19 @@ describe('authorizationState - 风险提示', () => {
       expect(hasStrongWarning).toBe(true)
     })
 
-    it('should fallback to MEDIUM advice for invalid risk level', () => {
+    it('should default to HIGH risk advice when riskLevel is null (边缘情况修复)', () => {
+      const advice = getHighRiskAdvice(null)
+      const highAdvice = getHighRiskAdvice(RISK_LEVELS.HIGH)
+      expect(advice).toEqual(highAdvice)
+    })
+
+    it('should default to HIGH risk advice when riskLevel is undefined (边缘情况修复)', () => {
+      const advice = getHighRiskAdvice(undefined)
+      const highAdvice = getHighRiskAdvice(RISK_LEVELS.HIGH)
+      expect(advice).toEqual(highAdvice)
+    })
+
+    it('should fallback to MEDIUM advice for unknown risk level string', () => {
       const advice = getHighRiskAdvice('invalid')
       const mediumAdvice = getHighRiskAdvice(RISK_LEVELS.MEDIUM)
       expect(advice).toEqual(mediumAdvice)

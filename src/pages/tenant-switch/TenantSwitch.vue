@@ -8,7 +8,7 @@
         </div>
         <button
           class="tenant-switch__invite-btn"
-          @click="handleInvite"
+          @click="showInviteModal = true"
           :disabled="loading"
         >
           <svg class="tenant-switch__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -194,11 +194,119 @@
         </div>
       </section>
     </div>
+
+    <div class="tenant-switch__modal-overlay" v-if="showInviteModal" @click.self="showInviteModal = false">
+      <div class="tenant-switch__modal" role="dialog" aria-modal="true" aria-labelledby="invite-modal-title">
+        <div class="tenant-switch__modal-header">
+          <h3 id="invite-modal-title" class="tenant-switch__modal-title">
+            <svg class="tenant-switch__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="8.5" cy="7" r="4"/>
+              <line x1="20" y1="8" x2="20" y2="14"/>
+              <line x1="23" y1="11" x2="17" y2="11"/>
+            </svg>
+            邀请成员
+          </h3>
+          <button class="tenant-switch__modal-close" @click="showInviteModal = false" aria-label="关闭">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <div class="tenant-switch__modal-body">
+          <div class="tenant-switch__invite-step">
+            <div class="tenant-switch__invite-step-number">1</div>
+            <div class="tenant-switch__invite-step-content">
+              <h4>选择目标空间</h4>
+              <p>选择要邀请成员加入的组织空间</p>
+              <select v-model="inviteForm.spaceId" class="tenant-switch__select" :disabled="inviteSending">
+                <option value="" disabled>请选择空间</option>
+                <option
+                  v-for="space in availableSpaces"
+                  :key="space.id"
+                  :value="space.id"
+                  :disabled="isSpaceExpired(space)"
+                >
+                  {{ space.name }}{{ isSpaceExpired(space) ? ' (已过期)' : '' }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="tenant-switch__invite-step">
+            <div class="tenant-switch__invite-step-number">2</div>
+            <div class="tenant-switch__invite-step-content">
+              <h4>输入邀请邮箱</h4>
+              <p>输入被邀请人的邮箱地址，多个邮箱用逗号分隔</p>
+              <textarea
+                v-model="inviteForm.emails"
+                class="tenant-switch__textarea"
+                placeholder="example1@email.com, example2@email.com"
+                rows="3"
+                :disabled="inviteSending"
+              ></textarea>
+              <p v-if="inviteForm.emails" class="tenant-switch__invite-count">
+                已输入 {{ validEmailCount }} 个有效邮箱
+              </p>
+            </div>
+          </div>
+
+          <div class="tenant-switch__invite-step">
+            <div class="tenant-switch__invite-step-number">3</div>
+            <div class="tenant-switch__invite-step-content">
+              <h4>设置成员角色</h4>
+              <p>选择被邀请人在空间中的角色权限</p>
+              <div class="tenant-switch__role-options">
+                <label
+                  v-for="role in inviteRoles"
+                  :key="role.value"
+                  class="tenant-switch__role-option"
+                  :class="{ 'tenant-switch__role-option--selected': inviteForm.role === role.value }"
+                >
+                  <input
+                    type="radio"
+                    :value="role.value"
+                    v-model="inviteForm.role"
+                    :disabled="inviteSending"
+                    class="tenant-switch__radio"
+                  />
+                  <div class="tenant-switch__role-info">
+                    <span class="tenant-switch__role-name">{{ role.label }}</span>
+                    <span class="tenant-switch__role-desc">{{ role.description }}</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tenant-switch__modal-footer">
+          <button
+            class="tenant-switch__btn tenant-switch__btn--secondary"
+            @click="showInviteModal = false"
+            :disabled="inviteSending"
+          >
+            取消
+          </button>
+          <button
+            class="tenant-switch__btn tenant-switch__btn--primary"
+            @click="handleSendInvite"
+            :disabled="!canSendInvite || inviteSending"
+          >
+            <span v-if="inviteSending">
+              <span class="tenant-switch__btn-spinner"></span>
+              发送中...
+            </span>
+            <span v-else>发送邀请</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import {
   MEMBER_ROLES,
   ROLE_LABELS,
@@ -211,18 +319,82 @@ import {
   formatDate,
   getExpireStatus
 } from './utils.js'
+import { generateMockSpaces } from './mockData.js'
+
+const props = defineProps({
+  spaces: {
+    type: Array,
+    default: () => []
+  },
+  initialSpaceId: {
+    type: String,
+    default: null
+  },
+  enableMock: {
+    type: Boolean,
+    default: true
+  },
+  simulateErrors: {
+    type: Boolean,
+    default: false
+  }
+})
+
+const emit = defineEmits(['switch-space', 'set-default', 'send-invite'])
 
 const loading = ref(true)
 const switchingSpaceId = ref(null)
 const settingDefaultId = ref(null)
+const showInviteModal = ref(false)
+const inviteSending = ref(false)
 
 const spaces = ref([])
-const currentSpaceId = ref(null)
+const currentSpaceId = ref(props.initialSpaceId)
 
 const notification = ref({
   show: false,
   type: 'success',
   message: ''
+})
+
+const inviteForm = ref({
+  spaceId: '',
+  emails: '',
+  role: MEMBER_ROLES.MEMBER
+})
+
+const inviteRoles = [
+  { value: MEMBER_ROLES.MEMBER, label: '成员', description: '可访问空间内的基础功能' },
+  { value: MEMBER_ROLES.ADMIN, label: '管理员', description: '可管理成员和空间设置' },
+  { value: MEMBER_ROLES.GUEST, label: '访客', description: '只读访问，权限受限' }
+]
+
+const apiClient = inject('apiClient', {
+  fetchSpaces: async () => {
+    await new Promise(resolve => setTimeout(resolve, 1200))
+    return generateMockSpaces()
+  },
+  switchSpace: async (space) => {
+    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 400))
+    if (props.simulateErrors && Math.random() < 0.1) {
+      throw new Error('切换空间失败')
+    }
+    return { success: true }
+  },
+  setDefaultSpace: async (space) => {
+    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 400))
+    if (props.simulateErrors && Math.random() < 0.1) {
+      throw new Error('设置默认空间失败')
+    }
+    return { success: true }
+  },
+  sendInvite: async (inviteData) => {
+    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 500))
+    if (props.simulateErrors && Math.random() < 0.1) {
+      throw new Error('发送邀请失败')
+    }
+    return { success: true, sentCount: inviteData.emails.length }
+  }
 })
 
 const sortedSpaces = computed(() => {
@@ -231,6 +403,25 @@ const sortedSpaces = computed(() => {
 
 const recentSpaces = computed(() => {
   return getRecentAccessRecords(spaces.value, 5)
+})
+
+const availableSpaces = computed(() => {
+  return spaces.value.filter(space => !isSpaceExpired(space))
+})
+
+const validEmailCount = computed(() => {
+  if (!inviteForm.value.emails) return 0
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return inviteForm.value.emails
+    .split(/[,，\s]+/)
+    .filter(email => emailRegex.test(email.trim()))
+    .length
+})
+
+const canSendInvite = computed(() => {
+  return inviteForm.value.spaceId &&
+    validEmailCount.value > 0 &&
+    inviteForm.value.role
 })
 
 function showNotification(type, message) {
@@ -262,16 +453,14 @@ async function handleSwitchSpace(space) {
   switchingSpaceId.value = space.id
 
   try {
-    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 400))
-
-    if (Math.random() < 0.1) {
-      throw new Error('模拟切换失败')
-    }
+    await apiClient.switchSpace(space)
 
     currentSpaceId.value = space.id
     spaces.value = updateLastAccessed(spaces.value, space.id)
+    emit('switch-space', space)
     showNotification('success', `已成功切换到「${space.name}」`)
   } catch (error) {
+    emit('switch-space', { space, error })
     showNotification('error', `切换到「${space.name}」失败，请稍后重试`)
   } finally {
     switchingSpaceId.value = null
@@ -284,115 +473,74 @@ async function handleSetDefault(space) {
   settingDefaultId.value = space.id
 
   try {
-    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 400))
-
-    if (Math.random() < 0.1) {
-      throw new Error('模拟设置失败')
-    }
+    await apiClient.setDefaultSpace(space)
 
     spaces.value = setDefaultSpace(spaces.value, space.id)
+    emit('set-default', space)
     showNotification('success', `已将「${space.name}」设为默认空间`)
   } catch (error) {
+    emit('set-default', { space, error })
     showNotification('error', `设置「${space.name}」为默认空间失败，请稍后重试`)
   } finally {
     settingDefaultId.value = null
   }
 }
 
-function handleInvite() {
-  showNotification('success', '邀请功能开发中，敬请期待')
-}
+async function handleSendInvite() {
+  if (!canSendInvite.value || inviteSending.value) return
 
-function generateMockSpaces() {
-  const now = new Date()
-  const futureDate = (days) => new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString()
-  const pastDate = (days) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString()
+  inviteSending.value = true
 
-  return [
-    {
-      id: 'space-1',
-      name: 'GoletaLab 研发中心',
-      role: MEMBER_ROLES.OWNER,
-      isDefault: true,
-      expireAt: null,
-      lastAccessedAt: pastDate(0.1),
-      createdAt: pastDate(365)
-    },
-    {
-      id: 'space-2',
-      name: '产品设计团队',
-      role: MEMBER_ROLES.ADMIN,
-      isDefault: false,
-      expireAt: futureDate(3),
-      lastAccessedAt: pastDate(1),
-      createdAt: pastDate(200)
-    },
-    {
-      id: 'space-3',
-      name: '市场营销部',
-      role: MEMBER_ROLES.MEMBER,
-      isDefault: false,
-      expireAt: futureDate(15),
-      lastAccessedAt: pastDate(3),
-      createdAt: pastDate(150)
-    },
-    {
-      id: 'space-4',
-      name: '人力资源',
-      role: MEMBER_ROLES.MEMBER,
-      isDefault: false,
-      expireAt: futureDate(45),
-      lastAccessedAt: pastDate(7),
-      createdAt: pastDate(100)
-    },
-    {
-      id: 'space-5',
-      name: '客户成功团队',
-      role: MEMBER_ROLES.GUEST,
-      isDefault: false,
-      expireAt: futureDate(90),
-      lastAccessedAt: pastDate(14),
-      createdAt: pastDate(60)
-    },
-    {
-      id: 'space-6',
-      name: '旧版测试空间',
-      role: MEMBER_ROLES.MEMBER,
-      isDefault: false,
-      expireAt: pastDate(5),
-      lastAccessedAt: pastDate(20),
-      createdAt: pastDate(400)
-    },
-    {
-      id: 'space-7',
-      name: '临时项目组',
-      role: MEMBER_ROLES.ADMIN,
-      isDefault: false,
-      expireAt: pastDate(30),
-      lastAccessedAt: pastDate(45),
-      createdAt: pastDate(300)
-    },
-    {
-      id: 'space-8',
-      name: '数据安全委员会',
-      role: MEMBER_ROLES.MEMBER,
-      isDefault: false,
-      expireAt: null,
-      lastAccessedAt: null,
-      createdAt: pastDate(50)
+  try {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const emails = inviteForm.value.emails
+      .split(/[,，\s]+/)
+      .map(email => email.trim())
+      .filter(email => emailRegex.test(email))
+
+    const inviteData = {
+      spaceId: inviteForm.value.spaceId,
+      emails,
+      role: inviteForm.value.role
     }
-  ]
+
+    const result = await apiClient.sendInvite(inviteData)
+    emit('send-invite', inviteData)
+    showNotification('success', `已成功发送 ${result.sentCount || emails.length} 份邀请`)
+
+    inviteForm.value = {
+      spaceId: '',
+      emails: '',
+      role: MEMBER_ROLES.MEMBER
+    }
+    showInviteModal.value = false
+  } catch (error) {
+    emit('send-invite', { error })
+    showNotification('error', '发送邀请失败，请稍后重试')
+  } finally {
+    inviteSending.value = false
+  }
 }
 
 onMounted(async () => {
   try {
-    await new Promise(resolve => setTimeout(resolve, 1200))
-    const mockSpaces = generateMockSpaces()
-    spaces.value = mockSpaces
+    let loadedSpaces = props.spaces
 
-    const defaultSpace = getDefaultSpace(mockSpaces)
-    if (defaultSpace) {
-      currentSpaceId.value = defaultSpace.id
+    if (!loadedSpaces || loadedSpaces.length === 0) {
+      if (props.enableMock) {
+        loadedSpaces = await apiClient.fetchSpaces()
+      } else {
+        loadedSpaces = []
+      }
+    }
+
+    spaces.value = loadedSpaces
+
+    if (!currentSpaceId.value) {
+      const defaultSpace = getDefaultSpace(spaces.value)
+      if (defaultSpace) {
+        currentSpaceId.value = defaultSpace.id
+      }
     }
   } catch (error) {
     showNotification('error', '加载空间列表失败，请刷新页面重试')
@@ -949,6 +1097,272 @@ onMounted(async () => {
   border-top-color: #6b7280;
 }
 
+.tenant-switch__modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.tenant-switch__modal {
+  background: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.tenant-switch__modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tenant-switch__modal-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tenant-switch__modal-title .tenant-switch__icon {
+  color: #667eea;
+  width: 22px;
+  height: 22px;
+}
+
+.tenant-switch__modal-close {
+  padding: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.tenant-switch__modal-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.tenant-switch__modal-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.tenant-switch__modal-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.tenant-switch__invite-step {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.tenant-switch__invite-step:last-child {
+  margin-bottom: 0;
+}
+
+.tenant-switch__invite-step-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tenant-switch__invite-step-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.tenant-switch__invite-step-content h4 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.tenant-switch__invite-step-content p {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.tenant-switch__select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #111827;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tenant-switch__select:hover:not(:disabled) {
+  border-color: #667eea;
+}
+
+.tenant-switch__select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.tenant-switch__select:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tenant-switch__textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #111827;
+  font-family: inherit;
+  resize: vertical;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.tenant-switch__textarea:hover:not(:disabled) {
+  border-color: #667eea;
+}
+
+.tenant-switch__textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.tenant-switch__textarea:disabled {
+  background: #f9fafb;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tenant-switch__invite-count {
+  margin: 8px 0 0 0 !important;
+  font-size: 12px !important;
+  color: #059669 !important;
+  font-weight: 500;
+}
+
+.tenant-switch__role-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tenant-switch__role-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tenant-switch__role-option:hover {
+  border-color: #c7d2fe;
+  background: #f5f3ff;
+}
+
+.tenant-switch__role-option--selected {
+  border-color: #667eea;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+}
+
+.tenant-switch__radio {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+}
+
+.tenant-switch__role-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tenant-switch__role-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.tenant-switch__role-desc {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.tenant-switch__modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 28px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
 @media (max-width: 768px) {
   .tenant-switch {
     padding: 16px 12px;
@@ -1020,6 +1434,23 @@ onMounted(async () => {
 
   .tenant-switch__recent-item {
     width: 100%;
+  }
+
+  .tenant-switch__modal-header,
+  .tenant-switch__modal-body,
+  .tenant-switch__modal-footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .tenant-switch__modal-header {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .tenant-switch__modal-footer {
+    padding-top: 16px;
+    padding-bottom: 16px;
   }
 }
 
@@ -1098,6 +1529,27 @@ onMounted(async () => {
 
   .tenant-switch__section-title {
     font-size: 14px;
+  }
+
+  .tenant-switch__modal-title {
+    font-size: 18px;
+  }
+
+  .tenant-switch__invite-step {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .tenant-switch__invite-step-number {
+    align-self: flex-start;
+  }
+
+  .tenant-switch__modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .tenant-switch__modal-footer .tenant-switch__btn {
+    width: 100%;
   }
 }
 </style>

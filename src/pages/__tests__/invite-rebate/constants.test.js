@@ -138,20 +138,33 @@ describe('constants', () => {
   })
 
   describe('WITHDRAWAL_STATUS', () => {
-    it('should have all 6 withdrawal statuses', () => {
+    it('should have all 8 withdrawal statuses', () => {
       expect(WITHDRAWAL_STATUS.AVAILABLE).toBe('available')
       expect(WITHDRAWAL_STATUS.MIN_AMOUNT_NOT_MET).toBe('min_amount_not_met')
+      expect(WITHDRAWAL_STATUS.MAX_AMOUNT_EXCEEDED).toBe('max_amount_exceeded')
+      expect(WITHDRAWAL_STATUS.INSUFFICIENT_BALANCE).toBe('insufficient_balance')
       expect(WITHDRAWAL_STATUS.IDENTITY_NOT_VERIFIED).toBe('identity_not_verified')
       expect(WITHDRAWAL_STATUS.ACCOUNT_RESTRICTED).toBe('account_restricted')
       expect(WITHDRAWAL_STATUS.COOLDOWN_ACTIVE).toBe('cooldown_active')
       expect(WITHDRAWAL_STATUS.MAINTENANCE).toBe('maintenance')
-      expect(Object.keys(WITHDRAWAL_STATUS)).toHaveLength(6)
+      expect(Object.keys(WITHDRAWAL_STATUS)).toHaveLength(8)
     })
 
     it('should have matching labels', () => {
       Object.keys(WITHDRAWAL_STATUS).forEach(key => {
         expect(WITHDRAWAL_STATUS_LABELS[WITHDRAWAL_STATUS[key]]).toBeDefined()
+        expect(typeof WITHDRAWAL_STATUS_LABELS[WITHDRAWAL_STATUS[key]]).toBe('string')
+        expect(WITHDRAWAL_STATUS_LABELS[WITHDRAWAL_STATUS[key]].length).toBeGreaterThan(0)
       })
+    })
+
+    it('should have distinct status values for all amount failure modes', () => {
+      const min = WITHDRAWAL_STATUS.MIN_AMOUNT_NOT_MET
+      const max = WITHDRAWAL_STATUS.MAX_AMOUNT_EXCEEDED
+      const bal = WITHDRAWAL_STATUS.INSUFFICIENT_BALANCE
+      expect(min).not.toBe(max)
+      expect(max).not.toBe(bal)
+      expect(min).not.toBe(bal)
     })
   })
 

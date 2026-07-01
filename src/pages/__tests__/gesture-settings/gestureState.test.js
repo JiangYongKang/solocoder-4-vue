@@ -14,6 +14,7 @@ import {
   confirmGesture,
   verifyGesture,
   unlockAfterLock,
+  enterResetStep,
   startReset,
   cancelReset,
   toggleGesture,
@@ -300,9 +301,25 @@ describe('gestureState', () => {
     })
   })
 
+  describe('enterResetStep', () => {
+    it('should enter RESET step from SET status and IDLE step', () => {
+      const result = enterResetStep(SET)
+      expect(result.success).toBe(true)
+      expect(result.currentStatus).toBe(SET)
+      expect(result.step).toBe(GESTURE_STEP.RESET)
+      expect(result.message).toBe('请验证原手势以重置')
+    })
+
+    it('should fail to enter RESET step from non-SET status', () => {
+      const result = enterResetStep(DRAWING)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('当前状态不允许重置手势')
+    })
+  })
+
   describe('startReset', () => {
-    it('should start reset after successful verification', () => {
-      const result = startReset(SET, validGesture, validGesture, 0)
+    it('should start reset after successful verification in RESET step', () => {
+      const result = startReset(SET, GESTURE_STEP.RESET, validGesture, validGesture, 0)
       expect(result.success).toBe(true)
       expect(result.currentStatus).toBe(DRAWING)
       expect(result.step).toBe(FIRST_DRAW)
@@ -310,15 +327,21 @@ describe('gestureState', () => {
       expect(result.message).toBe('验证成功，请绘制新手势')
     })
 
-    it('should fail when verification fails', () => {
-      const result = startReset(SET, validGesture, anotherGesture, 0)
+    it('should fail when verification fails in RESET step', () => {
+      const result = startReset(SET, GESTURE_STEP.RESET, validGesture, anotherGesture, 0)
       expect(result.success).toBe(false)
       expect(result.currentStatus).toBe(VERIFYING)
       expect(result.errorCount).toBe(1)
     })
 
     it('should fail when not in SET status', () => {
-      const result = startReset(DRAWING, validGesture, validGesture, 0)
+      const result = startReset(DRAWING, GESTURE_STEP.RESET, validGesture, validGesture, 0)
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('当前状态不允许重置手势')
+    })
+
+    it('should fail when not in RESET step', () => {
+      const result = startReset(SET, IDLE, validGesture, validGesture, 0)
       expect(result.success).toBe(false)
       expect(result.error).toBe('当前状态不允许重置手势')
     })
@@ -326,7 +349,7 @@ describe('gestureState', () => {
 
   describe('cancelReset', () => {
     it('should cancel reset from DRAWING status', () => {
-      const result = cancelReset(DRAWING)
+      const result = cancelReset(DRAWING, FIRST_DRAW)
       expect(result.success).toBe(true)
       expect(result.currentStatus).toBe(SET)
       expect(result.step).toBe(IDLE)
@@ -335,13 +358,21 @@ describe('gestureState', () => {
     })
 
     it('should cancel reset from CONFIRMING status', () => {
-      const result = cancelReset(CONFIRMING)
+      const result = cancelReset(CONFIRMING, SECOND_DRAW)
       expect(result.success).toBe(true)
       expect(result.currentStatus).toBe(SET)
     })
 
-    it('should fail to cancel from SET status', () => {
-      const result = cancelReset(SET)
+    it('should cancel reset from SET status and RESET step', () => {
+      const result = cancelReset(SET, GESTURE_STEP.RESET)
+      expect(result.success).toBe(true)
+      expect(result.currentStatus).toBe(SET)
+      expect(result.step).toBe(IDLE)
+      expect(result.message).toBe('已取消重置')
+    })
+
+    it('should fail to cancel from SET status with IDLE step', () => {
+      const result = cancelReset(SET, IDLE)
       expect(result.success).toBe(false)
       expect(result.error).toBe('当前状态不支持取消操作')
     })

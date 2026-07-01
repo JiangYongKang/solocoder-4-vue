@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest'
-import {
-  calculateCoolingPeriodEnd,
-  getRemainingTime,
-  formatRemainingTime,
-  getProgressPercentage,
-  getProgressStage,
-  isInCoolingPeriod,
-  shouldAutoComplete,
-  formatDateString,
-  getMilestoneEvents,
-  checkStatusFromTime
-} from '../../account-cancellation/coolingPeriod.js'
+import { describe, expect, it } from 'vitest'
 import { CANCELLATION_STATUS, COOLING_PERIOD_DAYS } from '../../account-cancellation/constants.js'
+import {
+    calculateCoolingPeriodEnd,
+    checkStatusFromTime,
+    formatDateString,
+    formatRemainingTime,
+    getMilestoneEvents,
+    getProgressPercentage,
+    getProgressStage,
+    getRemainingTime,
+    isInCoolingPeriod,
+    shouldAutoComplete
+} from '../../account-cancellation/coolingPeriod.js'
 
 describe('coolingPeriod', () => {
   const baseTime = '2025-01-01T00:00:00.000Z'
@@ -182,26 +182,37 @@ describe('coolingPeriod', () => {
       expect(result.label).toBe('冷静期初期')
     })
 
-    it('should return stage 2 at 75%', () => {
-      const result = getProgressStage(75)
+    it('should return stage 2 at 50%', () => {
+      const result = getProgressStage(50)
       expect(result.stage).toBe(2)
-      expect(result.label).toBe('冷静期中')
+      expect(result.label).toBe('冷静期中期')
     })
 
-    it('should return stage 3 at 100%', () => {
-      const result = getProgressStage(100)
+    it('should return stage 3 at 75%', () => {
+      const result = getProgressStage(75)
       expect(result.stage).toBe(3)
+      expect(result.label).toBe('冷静期后期')
+    })
+
+    it('should return stage 4 at 100%', () => {
+      const result = getProgressStage(100)
+      expect(result.stage).toBe(4)
       expect(result.label).toBe('即将完成')
     })
 
-    it('should handle edge boundary: 49% vs 50%', () => {
-      expect(getProgressStage(49).stage).toBe(1)
-      expect(getProgressStage(50).stage).toBe(2)
+    it('should handle edge boundary: 33% vs 34%', () => {
+      expect(getProgressStage(33).stage).toBe(1)
+      expect(getProgressStage(34).stage).toBe(2)
+    })
+
+    it('should handle edge boundary: 66% vs 67%', () => {
+      expect(getProgressStage(66).stage).toBe(2)
+      expect(getProgressStage(67).stage).toBe(3)
     })
 
     it('should handle edge boundary: 99% vs 100%', () => {
-      expect(getProgressStage(99).stage).toBe(2)
-      expect(getProgressStage(100).stage).toBe(3)
+      expect(getProgressStage(99).stage).toBe(3)
+      expect(getProgressStage(100).stage).toBe(4)
     })
   })
 
